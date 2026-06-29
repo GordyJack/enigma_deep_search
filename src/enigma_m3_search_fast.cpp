@@ -26,6 +26,7 @@
 #include <atomic>
 #include <chrono>
 #include <cmath>
+#include <cctype>
 #include <cstdint>
 #include <cstdlib>
 #include <cstring>
@@ -33,7 +34,9 @@
 #include <iomanip>
 #include <iostream>
 #include <limits>
+#include <map>
 #include <mutex>
+#include <set>
 #include <sstream>
 #include <stdexcept>
 #include <string>
@@ -258,8 +261,7 @@ public:
 private:
     bool at_notch(int slot) const {
         int rotor = rotors_[slot];
-        int turnover_window = (ROTOR_NOTCHES[rotor] - rings_[slot] + 26) % 26;
-        return positions_[slot] == turnover_window;
+        return positions_[slot] == ROTOR_NOTCHES[rotor];
     }
 
     void step() {
@@ -372,10 +374,9 @@ private:
 };
 
 void step_positions(const RotorOrder& rotors, Triplet& positions, const Triplet& rings) {
-    int middle_turnover = (ROTOR_NOTCHES[rotors[1]] - rings[1] + 26) % 26;
-    int right_turnover = (ROTOR_NOTCHES[rotors[2]] - rings[2] + 26) % 26;
-    bool middle_at_notch = positions[1] == middle_turnover;
-    bool right_at_notch = positions[2] == right_turnover;
+    (void)rings;
+    bool middle_at_notch = positions[1] == ROTOR_NOTCHES[rotors[1]];
+    bool right_at_notch = positions[2] == ROTOR_NOTCHES[rotors[2]];
 
     if (middle_at_notch) {
         positions[0] = (positions[0] + 1) % 26;
@@ -824,6 +825,560 @@ void print_result(const Result& result) {
               << std::flush;
 }
 
+std::string json_escape(const std::string& input) {
+    std::ostringstream out;
+    for (char ch : input) {
+        switch (ch) {
+            case '\\': out << "\\\\"; break;
+            case '"': out << "\\\""; break;
+            case '\n': out << "\\n"; break;
+            case '\r': out << "\\r"; break;
+            case '\t': out << "\\t"; break;
+            default:
+                if (static_cast<unsigned char>(ch) < 0x20) {
+                    out << "\\u" << std::hex << std::setw(4) << std::setfill('0')
+                        << static_cast<int>(static_cast<unsigned char>(ch))
+                        << std::dec << std::setfill(' ');
+                } else {
+                    out << ch;
+                }
+        }
+    }
+    return out.str();
+}
+
+std::string group_five(const std::string& input) {
+    std::string text = normalize_text(input);
+    std::string out;
+    for (size_t i = 0; i < text.size(); ++i) {
+        if (i > 0 && (i % 5) == 0) out.push_back(' ');
+        out.push_back(text[i]);
+    }
+    return out;
+}
+
+int popcount4(int value) {
+    int count = 0;
+    for (int i = 0; i < 4; ++i) {
+        if (value & (1 << i)) ++count;
+    }
+    return count;
+}
+
+std::vector<int> reader_plugboard_masks_in_preference_order() {
+    std::vector<int> masks;
+    for (int count : {3, 4, 2, 1, 0}) {
+        std::vector<int> group;
+        for (int mask = 0; mask < 16; ++mask) {
+            if (popcount4(mask) == count) group.push_back(mask);
+        }
+        std::sort(group.begin(), group.end(), [](int a, int b) {
+            for (int bit = 0; bit < 4; ++bit) {
+                bool av = (a & (1 << bit)) != 0;
+                bool bv = (b & (1 << bit)) != 0;
+                if (av != bv) return av > bv;
+            }
+            return a < b;
+        });
+        masks.insert(masks.end(), group.begin(), group.end());
+    }
+    return masks;
+}
+
+std::string reader_plugboard_label(int mask) {
+    struct DisplayPair {
+        int bit;
+        const char* label;
+    };
+    const std::array<DisplayPair, 4> display{{
+        {0, "PE"},
+        {2, "AF"},
+        {1, "GR"},
+        {3, "UT"},
+    }};
+
+    std::ostringstream out;
+    bool first = true;
+    for (const auto& item : display) {
+        if (mask & (1 << item.bit)) {
+            if (!first) out << ' ';
+            out << item.label;
+            first = false;
+        }
+    }
+    return first ? "none" : out.str();
+}
+
+struct ReaderCandidate {
+    int reader_rank = 0;
+    int reader_plaintext_rank = 1;
+    int reader_generated_rank = 0;
+    int start_ring_rank = 0;
+    int plugboard_rank = 0;
+    int normalized_length = MESSAGE_LEN;
+    std::string reader_plaintext_original = "THEDEATHWASERASED";
+    std::string reader_plaintext = "THEDEATHWASERASED";
+    std::string start;
+    std::string rings;
+    int plugboard_mask = 0;
+    std::string active_pairs_label;
+    std::string ciphertext;
+    std::string grouped_ciphertext;
+};
+
+struct GordonPlaintextTarget {
+    int rank = 0;
+    int normalized_length = MESSAGE_LEN;
+    std::string original;
+    std::string plaintext;
+};
+
+std::vector<GordonPlaintextTarget> gordon_plaintext_targets() {
+    return {
+        {1, MESSAGE_LEN, "REALITYISACONFLUX", "REALITYISACONFLUX"},
+        {2, MESSAGE_LEN, "CONFLUXNEEDANIMUS", "CONFLUXNEEDANIMUS"},
+        {3, MESSAGE_LEN, "LUXNOXMINDCONFLUX", "LUXNOXMINDCONFLUX"},
+        {4, MESSAGE_LEN, "MINDLUXNOXCONFLUX", "MINDLUXNOXCONFLUX"},
+        {5, MESSAGE_LEN, "CONFLUXMINDLUXNOX", "CONFLUXMINDLUXNOX"},
+        {6, MESSAGE_LEN, "CONFLUXLUXNOXMIND", "CONFLUXLUXNOXMIND"},
+        {7, MESSAGE_LEN, "ANIMUSBINDSLUXNOX", "ANIMUSBINDSLUXNOX"},
+        {8, MESSAGE_LEN, "CONFLUXWITHANIMUS", "CONFLUXWITHANIMUS"},
+    };
+}
+
+struct NormalizedTextEntry {
+    int rank = 0;
+    int raw_index = 0;
+    std::string original;
+    std::string normalized;
+    int length = 0;
+};
+
+struct SkippedTextEntry {
+    int raw_index = 0;
+    std::string original;
+    std::string normalized;
+    std::string reason;
+    int duplicate_of_rank = 0;
+};
+
+std::vector<std::pair<std::string, std::string>> reader_start_ring_order() {
+    return {
+        {"GJM", "MMM"},
+        {"MMM", "GJM"},
+        {"GJM", "RAE"},
+        {"RAE", "GJM"},
+        {"GJM", "MUN"},
+        {"MUN", "GJM"},
+    };
+}
+
+std::vector<std::string> read_text_lines(const std::string& path) {
+    std::ifstream in(path);
+    if (!in) {
+        throw std::runtime_error("could not open plaintext list: " + path);
+    }
+    std::vector<std::string> lines;
+    std::string line;
+    while (std::getline(in, line)) {
+        if (!line.empty() && line.back() == '\r') {
+            line.pop_back();
+        }
+        lines.push_back(line);
+    }
+    return lines;
+}
+
+bool normalize_plaintext_entry(const std::string& input, std::string& normalized, std::string& error) {
+    normalized.clear();
+    for (unsigned char raw : input) {
+        char ch = static_cast<char>(raw);
+        if (ch >= 'a' && ch <= 'z') {
+            ch = static_cast<char>(ch - 'a' + 'A');
+        }
+        if (ch >= 'A' && ch <= 'Z') {
+            normalized.push_back(ch);
+        } else if (std::isspace(raw) || std::ispunct(raw)) {
+            continue;
+        } else {
+            std::ostringstream msg;
+            msg << "invalid non A-Z character 0x"
+                << std::hex << std::uppercase << static_cast<int>(raw);
+            error = msg.str();
+            return false;
+        }
+    }
+    error.clear();
+    return true;
+}
+
+std::vector<NormalizedTextEntry> normalize_text_entries(
+    const std::vector<std::string>& raw,
+    std::vector<SkippedTextEntry>& skipped) {
+
+    std::vector<NormalizedTextEntry> accepted;
+    std::map<std::string, int> first_rank_by_text;
+    for (size_t i = 0; i < raw.size(); ++i) {
+        std::string normalized;
+        std::string error;
+        int raw_index = static_cast<int>(i) + 1;
+        if (!normalize_plaintext_entry(raw[i], normalized, error)) {
+            skipped.push_back(SkippedTextEntry{raw_index, raw[i], normalized, error, 0});
+            continue;
+        }
+        if (normalized.empty()) {
+            skipped.push_back(SkippedTextEntry{raw_index, raw[i], normalized, "normalizes to empty", 0});
+            continue;
+        }
+        if (normalized.size() > MESSAGE_LEN) {
+            skipped.push_back(SkippedTextEntry{raw_index, raw[i], normalized, "normalized length exceeds 17", 0});
+            continue;
+        }
+        auto existing = first_rank_by_text.find(normalized);
+        if (existing != first_rank_by_text.end()) {
+            skipped.push_back(SkippedTextEntry{raw_index, raw[i], normalized, "duplicate normalized plaintext", existing->second});
+            continue;
+        }
+        int rank = static_cast<int>(accepted.size()) + 1;
+        first_rank_by_text[normalized] = rank;
+        accepted.push_back(NormalizedTextEntry{rank, raw_index, raw[i], normalized, static_cast<int>(normalized.size())});
+    }
+    return accepted;
+}
+
+std::vector<ReaderCandidate> generate_reader_candidates_for_plaintexts(
+    const std::vector<NormalizedTextEntry>& plaintexts) {
+
+    const auto start_ring = reader_start_ring_order();
+    std::vector<int> masks = reader_plugboard_masks_in_preference_order();
+    std::vector<ReaderCandidate> out;
+    int global_rank = 1;
+
+    for (const auto& entry : plaintexts) {
+        int generated_rank = 1;
+        for (size_t sr = 0; sr < start_ring.size(); ++sr) {
+            for (size_t pr = 0; pr < masks.size(); ++pr) {
+                int mask = masks[pr];
+                std::string pairs = reader_plugboard_label(mask);
+                EnigmaMachine reader = (
+                    EnigmaBuilder()
+                    .reflector("B")
+                    .rotors("III", "I", "IV")
+                    .start(start_ring[sr].first)
+                    .rings(start_ring[sr].second)
+                    .plugboard(pairs == "none" ? "" : pairs)
+                    .build()
+                );
+                std::string cipher = reader.encrypt(entry.normalized);
+
+                ReaderCandidate item;
+                item.reader_rank = global_rank++;
+                item.reader_plaintext_rank = entry.rank;
+                item.reader_generated_rank = generated_rank++;
+                item.start_ring_rank = static_cast<int>(sr) + 1;
+                item.plugboard_rank = static_cast<int>(pr) + 1;
+                item.normalized_length = entry.length;
+                item.reader_plaintext_original = entry.original;
+                item.reader_plaintext = entry.normalized;
+                item.start = start_ring[sr].first;
+                item.rings = start_ring[sr].second;
+                item.plugboard_mask = mask;
+                item.active_pairs_label = pairs;
+                item.ciphertext = cipher;
+                item.grouped_ciphertext = group_five(cipher);
+                out.push_back(item);
+            }
+        }
+    }
+    return out;
+}
+
+std::vector<ReaderCandidate> generate_reader_candidates() {
+    return generate_reader_candidates_for_plaintexts({
+        NormalizedTextEntry{1, 1, "THEDEATHWASERASED", "THEDEATHWASERASED", MESSAGE_LEN}
+    });
+}
+
+void write_reader_candidates_json(const std::string& path) {
+    std::vector<ReaderCandidate> candidates = generate_reader_candidates();
+    std::vector<GordonPlaintextTarget> plaintexts = gordon_plaintext_targets();
+
+    std::ofstream out(path);
+    if (!out) {
+        throw std::runtime_error("could not write reader candidates JSON: " + path);
+    }
+    out << "{\n";
+    out << "  \"reader_plaintext\": \"THEDEATHWASERASED\",\n";
+    out << "  \"reader_reflector\": \"B\",\n";
+    out << "  \"reader_rotors_left_to_right\": [\"III\", \"I\", \"IV\"],\n";
+    out << "  \"reader_candidate_count\": " << candidates.size() << ",\n";
+    out << "  \"gordon_plaintext_count\": " << plaintexts.size() << ",\n";
+    out << "  \"target_pairing_count\": " << (candidates.size() * plaintexts.size()) << ",\n";
+    out << "  \"reader_candidates\": [\n";
+    for (size_t i = 0; i < candidates.size(); ++i) {
+        const auto& c = candidates[i];
+        out << "    {"
+            << "\"reader_rank\": " << c.reader_rank
+            << ", \"start_ring_rank\": " << c.start_ring_rank
+            << ", \"plugboard_rank\": " << c.plugboard_rank
+            << ", \"start\": \"" << c.start << "\""
+            << ", \"rings\": \"" << c.rings << "\""
+            << ", \"active_pairs\": \"" << json_escape(c.active_pairs_label) << "\""
+            << ", \"ciphertext\": \"" << c.ciphertext << "\""
+            << ", \"grouped\": \"" << c.grouped_ciphertext << "\""
+            << "}";
+        if (i + 1 != candidates.size()) out << ",";
+        out << "\n";
+    }
+    out << "  ],\n";
+    out << "  \"gordon_plaintexts\": [\n";
+    for (size_t i = 0; i < plaintexts.size(); ++i) {
+        const auto& p = plaintexts[i];
+        out << "    {\"rank\": " << p.rank
+            << ", \"plaintext\": \"" << p.plaintext << "\""
+            << ", \"normalized_length\": " << normalize_text(p.plaintext).size()
+            << "}";
+        if (i + 1 != plaintexts.size()) out << ",";
+        out << "\n";
+    }
+    out << "  ]\n";
+    out << "}\n";
+}
+
+void write_skipped_entries_json(std::ostream& out, const std::vector<SkippedTextEntry>& skipped, int indent) {
+    std::string pad(indent, ' ');
+    out << "[\n";
+    for (size_t i = 0; i < skipped.size(); ++i) {
+        const auto& item = skipped[i];
+        out << pad << "  {\"raw_index\": " << item.raw_index
+            << ", \"original\": \"" << json_escape(item.original) << "\""
+            << ", \"normalized\": \"" << json_escape(item.normalized) << "\""
+            << ", \"reason\": \"" << json_escape(item.reason) << "\""
+            << ", \"duplicate_of_rank\": " << item.duplicate_of_rank
+            << "}";
+        if (i + 1 != skipped.size()) out << ",";
+        out << "\n";
+    }
+    out << pad << "]";
+}
+
+void write_text_entries_json(std::ostream& out, const std::vector<NormalizedTextEntry>& entries, int indent) {
+    std::string pad(indent, ' ');
+    out << "[\n";
+    for (size_t i = 0; i < entries.size(); ++i) {
+        const auto& item = entries[i];
+        out << pad << "  {\"rank\": " << item.rank
+            << ", \"raw_index\": " << item.raw_index
+            << ", \"original\": \"" << json_escape(item.original) << "\""
+            << ", \"plaintext\": \"" << json_escape(item.normalized) << "\""
+            << ", \"normalized_length\": " << item.length
+            << "}";
+        if (i + 1 != entries.size()) out << ",";
+        out << "\n";
+    }
+    out << pad << "]";
+}
+
+void write_length_groups_json(
+    std::ostream& out,
+    const std::vector<NormalizedTextEntry>& entries,
+    int indent) {
+
+    std::map<int, std::vector<NormalizedTextEntry>> by_length;
+    std::vector<int> length_order;
+    std::set<int> seen_lengths;
+    for (const auto& item : entries) {
+        if (seen_lengths.insert(item.length).second) {
+            length_order.push_back(item.length);
+        }
+        by_length[item.length].push_back(item);
+    }
+
+    std::string pad(indent, ' ');
+    out << "[\n";
+    for (size_t i = 0; i < length_order.size(); ++i) {
+        int length = length_order[i];
+        out << pad << "  {\"length\": " << length << ", \"entries\": ";
+        write_text_entries_json(out, by_length[length], indent + 2);
+        out << "}";
+        if (i + 1 != length_order.size()) out << ",";
+        out << "\n";
+    }
+    out << pad << "]";
+}
+
+void write_mixed_reader_candidates_json(
+    const std::string& path,
+    const std::string& reader_path,
+    const std::string& gordon_path) {
+
+    std::vector<std::string> reader_raw = read_text_lines(reader_path);
+    std::vector<std::string> gordon_raw = read_text_lines(gordon_path);
+    if (reader_raw.size() != gordon_raw.size()) {
+        throw std::runtime_error("reader and Gordon plaintext lists must have the same raw entry count");
+    }
+
+    std::vector<SkippedTextEntry> reader_skipped;
+    std::vector<SkippedTextEntry> gordon_skipped;
+    std::vector<NormalizedTextEntry> reader_entries = normalize_text_entries(reader_raw, reader_skipped);
+    std::vector<NormalizedTextEntry> gordon_entries = normalize_text_entries(gordon_raw, gordon_skipped);
+    if (reader_entries.size() != gordon_entries.size()) {
+        throw std::runtime_error("reader and Gordon plaintext lists must have the same accepted entry count after invalid/duplicate handling");
+    }
+
+    std::vector<ReaderCandidate> reader_candidates = generate_reader_candidates_for_plaintexts(reader_entries);
+    std::vector<GordonPlaintextTarget> gordon_targets;
+    for (const auto& entry : gordon_entries) {
+        gordon_targets.push_back(GordonPlaintextTarget{
+            entry.rank,
+            entry.length,
+            entry.original,
+            entry.normalized
+        });
+    }
+
+    std::map<int, int> reader_plain_count_by_length;
+    std::map<int, int> gordon_plain_count_by_length;
+    std::map<int, int> generated_count_by_length;
+    std::map<int, uint64_t> impossible_count_by_length;
+    std::map<int, uint64_t> viable_count_by_length;
+    for (const auto& entry : reader_entries) reader_plain_count_by_length[entry.length]++;
+    for (const auto& entry : gordon_entries) gordon_plain_count_by_length[entry.length]++;
+    for (const auto& cand : reader_candidates) generated_count_by_length[cand.normalized_length]++;
+    for (const auto& candidate : reader_candidates) {
+        for (const auto& target : gordon_targets) {
+            if (candidate.normalized_length != target.normalized_length) {
+                continue;
+            }
+            if (same_position_letter_exists(target.plaintext, candidate.ciphertext)) {
+                impossible_count_by_length[candidate.normalized_length]++;
+            } else {
+                viable_count_by_length[candidate.normalized_length]++;
+            }
+        }
+    }
+
+    std::vector<int> all_lengths;
+    std::set<int> seen_lengths;
+    for (const auto& item : reader_entries) {
+        if (seen_lengths.insert(item.length).second) {
+            all_lengths.push_back(item.length);
+        }
+    }
+    for (const auto& item : gordon_entries) {
+        if (seen_lengths.insert(item.length).second) {
+            all_lengths.push_back(item.length);
+        }
+    }
+
+    uint64_t same_length_pairings = 0;
+    std::vector<int> unmatched_reader_lengths;
+    std::vector<int> unmatched_gordon_lengths;
+    for (int len : all_lengths) {
+        int reader_generated = generated_count_by_length[len];
+        int gordon_count = gordon_plain_count_by_length[len];
+        if (reader_generated > 0 && gordon_count > 0) {
+            same_length_pairings += static_cast<uint64_t>(reader_generated) * static_cast<uint64_t>(gordon_count);
+        } else if (reader_generated > 0) {
+            unmatched_reader_lengths.push_back(len);
+        } else if (gordon_count > 0) {
+            unmatched_gordon_lengths.push_back(len);
+        }
+    }
+
+    std::ofstream out(path);
+    if (!out) {
+        throw std::runtime_error("could not write mixed reader candidate JSON: " + path);
+    }
+
+    out << "{\n";
+    out << "  \"mode\": \"mixed_length_reader_candidates\",\n";
+    out << "  \"reader_plaintext_file\": \"" << json_escape(reader_path) << "\",\n";
+    out << "  \"gordon_plaintext_file\": \"" << json_escape(gordon_path) << "\",\n";
+    out << "  \"reader_raw_count\": " << reader_raw.size() << ",\n";
+    out << "  \"gordon_raw_count\": " << gordon_raw.size() << ",\n";
+    out << "  \"reader_accepted_count\": " << reader_entries.size() << ",\n";
+    out << "  \"gordon_accepted_count\": " << gordon_entries.size() << ",\n";
+    out << "  \"reader_skipped_count\": " << reader_skipped.size() << ",\n";
+    out << "  \"gordon_skipped_count\": " << gordon_skipped.size() << ",\n";
+    out << "  \"reader_generated_candidate_count\": " << reader_candidates.size() << ",\n";
+    out << "  \"same_length_target_pairing_count\": " << same_length_pairings << ",\n";
+    uint64_t impossible_total = 0;
+    uint64_t viable_total = 0;
+    for (const auto& item : impossible_count_by_length) impossible_total += item.second;
+    for (const auto& item : viable_count_by_length) viable_total += item.second;
+    out << "  \"impossible_pairings_skipped\": " << impossible_total << ",\n";
+    out << "  \"viable_pairing_count\": " << viable_total << ",\n";
+    out << "  \"reader_skipped_entries\": ";
+    write_skipped_entries_json(out, reader_skipped, 2);
+    out << ",\n  \"gordon_skipped_entries\": ";
+    write_skipped_entries_json(out, gordon_skipped, 2);
+    out << ",\n  \"reader_plaintexts\": ";
+    write_text_entries_json(out, reader_entries, 2);
+    out << ",\n  \"gordon_plaintexts\": ";
+    write_text_entries_json(out, gordon_entries, 2);
+    out << ",\n  \"reader_plaintexts_by_length\": ";
+    write_length_groups_json(out, reader_entries, 2);
+    out << ",\n  \"gordon_plaintexts_by_length\": ";
+    write_length_groups_json(out, gordon_entries, 2);
+    out << ",\n  \"length_stats\": [\n";
+    for (size_t i = 0; i < all_lengths.size(); ++i) {
+        int len = all_lengths[i];
+        int reader_plain_count = reader_plain_count_by_length[len];
+        int gordon_plain_count = gordon_plain_count_by_length[len];
+        int generated_count = generated_count_by_length[len];
+        uint64_t pairings = static_cast<uint64_t>(generated_count) * static_cast<uint64_t>(gordon_plain_count);
+        out << "    {\"length\": " << len
+            << ", \"reader_plaintext_count\": " << reader_plain_count
+            << ", \"gordon_plaintext_count\": " << gordon_plain_count
+            << ", \"generated_reader_ciphertext_count\": " << generated_count
+            << ", \"same_length_pairings\": " << pairings
+            << ", \"impossible_pairings_skipped\": " << impossible_count_by_length[len]
+            << ", \"viable_pairings\": " << viable_count_by_length[len]
+            << ", \"unmatched_reader_length\": " << ((generated_count > 0 && gordon_plain_count == 0) ? "true" : "false")
+            << ", \"unmatched_gordon_length\": " << ((generated_count == 0 && gordon_plain_count > 0) ? "true" : "false")
+            << "}";
+        if (i + 1 != all_lengths.size()) out << ",";
+        out << "\n";
+    }
+    out << "  ],\n";
+    out << "  \"reader_candidates\": [\n";
+    for (size_t i = 0; i < reader_candidates.size(); ++i) {
+        const auto& c = reader_candidates[i];
+        out << "    {"
+            << "\"reader_rank\": " << c.reader_rank
+            << ", \"reader_plaintext_rank\": " << c.reader_plaintext_rank
+            << ", \"reader_generated_rank\": " << c.reader_generated_rank
+            << ", \"start_ring_rank\": " << c.start_ring_rank
+            << ", \"plugboard_rank\": " << c.plugboard_rank
+            << ", \"normalized_length\": " << c.normalized_length
+            << ", \"reader_plaintext_original\": \"" << json_escape(c.reader_plaintext_original) << "\""
+            << ", \"reader_plaintext\": \"" << json_escape(c.reader_plaintext) << "\""
+            << ", \"start\": \"" << c.start << "\""
+            << ", \"rings\": \"" << c.rings << "\""
+            << ", \"active_pairs\": \"" << json_escape(c.active_pairs_label) << "\""
+            << ", \"ciphertext\": \"" << c.ciphertext << "\""
+            << ", \"grouped\": \"" << c.grouped_ciphertext << "\""
+            << "}";
+        if (i + 1 != reader_candidates.size()) out << ",";
+        out << "\n";
+    }
+    out << "  ],\n";
+    out << "  \"gordon_targets\": [\n";
+    for (size_t i = 0; i < gordon_targets.size(); ++i) {
+        const auto& g = gordon_targets[i];
+        out << "    {\"rank\": " << g.rank
+            << ", \"original\": \"" << json_escape(g.original) << "\""
+            << ", \"plaintext\": \"" << json_escape(g.plaintext) << "\""
+            << ", \"normalized_length\": " << g.normalized_length
+            << "}";
+        if (i + 1 != gordon_targets.size()) out << ",";
+        out << "\n";
+    }
+    out << "  ]\n";
+    out << "}\n";
+}
+
 struct SearchOptions {
     std::string tier = "both";
     std::string plaintext = "REALITYISACONFLUX";
@@ -837,10 +1392,17 @@ struct SearchOptions {
     uint64_t chunk_size = 4096;
     std::string output = "outputs/gordon_enigma_cpp_results.json";
     std::string state_list_binary;
+    std::string behavior_class_list_binary;
     bool behavior_compressed = false;
     bool behavior_direct = false;
     bool self_test = false;
     bool skip_initial_tests = false;
+    bool generate_reader_candidates = false;
+    bool generate_mixed_reader_candidates = false;
+    bool validation_battery = false;
+    bool mixed_length_validation = false;
+    std::string reader_plaintexts_file;
+    std::string gordon_plaintexts_file;
 };
 
 std::string format_duration(double seconds) {
@@ -991,11 +1553,11 @@ struct BehaviorClassState {
 };
 
 int turnover_threshold_for_ring(int rotor, int ring) {
-    return (ROTOR_NOTCHES[rotor] - 2 * ring + 52) % 26;
+    return (ROTOR_NOTCHES[rotor] - ring + 26) % 26;
 }
 
-std::array<ThresholdRing, 13> threshold_ring_representatives(int rotor) {
-    std::array<ThresholdRing, 13> reps{};
+std::array<ThresholdRing, 26> threshold_ring_representatives(int rotor) {
+    std::array<ThresholdRing, 26> reps{};
     int count = 0;
     for (int threshold = 0; threshold < 26; ++threshold) {
         bool found = false;
@@ -1008,8 +1570,8 @@ std::array<ThresholdRing, 13> threshold_ring_representatives(int rotor) {
         }
         (void)found;
     }
-    if (count != 13) {
-        throw std::runtime_error("expected exactly 13 turnover thresholds for rotor");
+    if (count != 26) {
+        throw std::runtime_error("expected exactly 26 turnover thresholds for rotor");
     }
     return reps;
 }
@@ -1021,8 +1583,8 @@ std::vector<int> rings_for_threshold(int rotor, int threshold) {
             rings.push_back(ring);
         }
     }
-    if (rings.size() != 2) {
-        throw std::runtime_error("expected exactly two rings for turnover threshold");
+    if (rings.size() != 1) {
+        throw std::runtime_error("expected exactly one ring for turnover threshold");
     }
     return rings;
 }
@@ -1040,8 +1602,8 @@ int threshold_index_for_threshold(int rotor, int threshold) {
 uint64_t behavior_direct_total_for_tier(const std::vector<RotorOrder>& rotor_orders) {
     return static_cast<uint64_t>(rotor_orders.size()) *
            REFLECTOR_COUNT *
-           13ULL *
-           13ULL *
+           26ULL *
+           26ULL *
            TRIPLET_COUNT;
 }
 
@@ -1057,10 +1619,10 @@ BehaviorClassState decode_behavior_class(
     uint64_t work = class_index;
     uint32_t offset_index = static_cast<uint32_t>(work % TRIPLET_COUNT);
     work /= TRIPLET_COUNT;
-    int right_threshold_index = static_cast<int>(work % 13);
-    work /= 13;
-    int middle_threshold_index = static_cast<int>(work % 13);
-    work /= 13;
+    int right_threshold_index = static_cast<int>(work % 26);
+    work /= 26;
+    int middle_threshold_index = static_cast<int>(work % 26);
+    work /= 26;
     item.reflector = static_cast<int>(work % REFLECTOR_COUNT);
     work /= REFLECTOR_COUNT;
     item.rotor_order_index = static_cast<int>(work);
@@ -1101,8 +1663,8 @@ uint64_t behavior_class_index_for_state(const DecodedState& state) {
     int right_index = threshold_index_for_threshold(state.rotors[2], right_threshold);
 
     return (((static_cast<uint64_t>(state.rotor_order_index) * REFLECTOR_COUNT + state.reflector) *
-             13ULL + static_cast<uint64_t>(middle_index)) *
-            13ULL + static_cast<uint64_t>(right_index)) *
+             26ULL + static_cast<uint64_t>(middle_index)) *
+            26ULL + static_cast<uint64_t>(right_index)) *
            TRIPLET_COUNT + encode_triplet(offsets);
 }
 
@@ -1545,7 +2107,7 @@ void process_behavior_class_direct(
 
     std::cout << "\nFound behavior-class solution at class index "
               << item.class_index
-              << "; expanding 104 literal ring/start states...\n"
+              << "; expanding 26 literal ring/start states...\n"
               << std::flush;
 
     expand_behavior_class_solutions(
@@ -1955,7 +2517,7 @@ TierStats run_tier_behavior_direct_search(
               << "Tier " << tier << " direct behavior classes: " << class_total << "\n"
               << "Tier " << tier << " behavior-class start index: " << options.start_index << "\n"
               << "Tier " << tier << " behavior classes configured for this run: " << total_to_run << "\n"
-              << "Each behavior class represents 104 literal ring/start states.\n"
+              << "Each behavior class represents 26 literal ring/start states.\n"
               << "Precomputing " << (rotor_orders.size() * REFLECTOR_COUNT * TRIPLET_COUNT)
               << " plugboardless core maps...\n" << std::flush;
 
@@ -2064,17 +2626,17 @@ TierStats run_tier_behavior_direct_search(
     stats.stage10_pass = shared.stage10_pass.load();
     stats.full_solves = shared.full_solves.load();
     stats.behavior_unique = stats.checked;
-    stats.behavior_duplicates = stats.checked * 103ULL;
+    stats.behavior_duplicates = stats.checked * 25ULL;
     stats.behavior_representatives_checked = stats.checked;
     stats.behavior_build_seconds = 0.0;
     stats.elapsed_seconds = elapsed;
 
     std::cout << "Tier " << tier << " direct behavior-class complete: checked "
               << stats.checked << " / " << stats.total_to_run
-              << " class(es), representing " << (stats.checked * 104ULL)
+              << " class(es), representing " << (stats.checked * 26ULL)
               << " literal state(s), in " << format_duration(stats.elapsed_seconds)
               << " (class avg " << format_rate(stats.checked / std::max(0.001, stats.elapsed_seconds))
-              << ", literal-equivalent avg " << format_rate((stats.checked * 104.0) / std::max(0.001, stats.elapsed_seconds)) << "). "
+              << ", literal-equivalent avg " << format_rate((stats.checked * 26.0) / std::max(0.001, stats.elapsed_seconds)) << "). "
               << "stage1-pass " << stats.stage1_pass
               << ", stage5-pass " << stats.stage5_pass
               << ", stage10-pass " << stats.stage10_pass
@@ -2227,6 +2789,154 @@ TierStats run_tier_state_list_search(
               << " in " << format_duration(stats.elapsed_seconds)
               << " (avg " << format_rate(stats.checked / std::max(0.001, stats.elapsed_seconds)) << "). "
               << "full-solves " << stats.full_solves
+              << ", results this tier " << shared.results.size()
+              << "\n" << std::flush;
+
+    return stats;
+}
+
+TierStats run_tier_behavior_class_list_search(
+    int tier,
+    const SearchOptions& options,
+    const CribProblem& problem,
+    const std::string& plaintext,
+    const std::string& ciphertext,
+    const std::vector<uint64_t>& classes,
+    std::vector<Result>& all_results) {
+
+    std::vector<RotorOrder> rotor_orders = rotor_orders_for_tier(tier);
+    uint64_t literal_tier_total = total_states_for_tier(rotor_orders);
+    uint64_t class_total = behavior_direct_total_for_tier(rotor_orders);
+
+    std::cout << "Tier " << tier << " literal expanded states: " << literal_tier_total << "\n"
+              << "Tier " << tier << " direct behavior classes: " << class_total << "\n"
+              << "Tier " << tier << " explicit behavior-class entries: " << classes.size() << "\n"
+              << "Precomputing " << (rotor_orders.size() * REFLECTOR_COUNT * TRIPLET_COUNT)
+              << " plugboardless core maps...\n" << std::flush;
+
+    for (uint64_t class_index : classes) {
+        if (class_index >= class_total) {
+            throw std::runtime_error("behavior-class list contains index outside this tier");
+        }
+    }
+
+    std::vector<CoreMap> core_cache = build_core_cache(rotor_orders);
+    std::cout << "Core-map precompute complete. Starting " << options.threads
+              << " behavior-class survivor worker thread(s).\n" << std::flush;
+
+    SharedSearch shared;
+    auto started = Clock::now();
+    std::vector<std::thread> workers;
+    workers.reserve(options.threads);
+
+    for (int t = 0; t < options.threads; ++t) {
+        workers.emplace_back([&, t]() {
+            (void)t;
+            while (!shared.stop.load()) {
+                uint64_t offset = shared.next_offset.fetch_add(options.chunk_size);
+                if (offset >= classes.size()) {
+                    break;
+                }
+                uint64_t end = std::min<uint64_t>(offset + options.chunk_size, classes.size());
+                uint64_t local_checked = 0;
+                uint64_t local_stage1 = 0;
+                uint64_t local_stage5 = 0;
+                uint64_t local_stage10 = 0;
+                uint64_t local_full = 0;
+
+                for (uint64_t current = offset; current < end; ++current) {
+                    if (shared.stop.load()) {
+                        break;
+                    }
+                    uint64_t class_index = classes[static_cast<size_t>(current)];
+                    BehaviorClassState item = decode_behavior_class(class_index, tier, rotor_orders);
+                    process_behavior_class_direct(
+                        problem,
+                        core_cache,
+                        plaintext,
+                        ciphertext,
+                        item,
+                        options,
+                        shared,
+                        local_stage1,
+                        local_stage5,
+                        local_stage10,
+                        local_full);
+                    ++local_checked;
+                    if ((local_checked & 0x3ffULL) == 0) {
+                        shared.last_absolute_index.store(item.representative_state_index);
+                    }
+                }
+
+                shared.checked.fetch_add(local_checked);
+                shared.stage1_pass.fetch_add(local_stage1);
+                shared.stage5_pass.fetch_add(local_stage5);
+                shared.stage10_pass.fetch_add(local_stage10);
+                shared.full_solves.fetch_add(local_full);
+                if (local_checked > 0) {
+                    BehaviorClassState item = decode_behavior_class(
+                        classes[static_cast<size_t>(offset + local_checked - 1)],
+                        tier,
+                        rotor_orders);
+                    shared.last_absolute_index.store(item.representative_state_index);
+                }
+            }
+        });
+    }
+
+    std::thread reporter;
+    if (options.progress_seconds > 0) {
+        reporter = std::thread(
+            reporter_thread,
+            std::cref(shared),
+            std::cref(rotor_orders),
+            tier,
+            literal_tier_total,
+            0,
+            static_cast<uint64_t>(classes.size()),
+            options.progress_seconds,
+            started);
+    }
+
+    for (auto& worker : workers) {
+        worker.join();
+    }
+    shared.stop.store(true);
+    if (reporter.joinable()) {
+        reporter.join();
+    }
+
+    auto ended = Clock::now();
+    double elapsed = std::chrono::duration<double>(ended - started).count();
+    {
+        std::lock_guard<std::mutex> lock(shared.result_mutex);
+        for (const auto& result : shared.results) {
+            all_results.push_back(result);
+        }
+    }
+
+    TierStats stats;
+    stats.tier = tier;
+    stats.checked = shared.checked.load();
+    stats.total_to_run = static_cast<uint64_t>(classes.size());
+    stats.tier_total = literal_tier_total;
+    stats.stage1_pass = shared.stage1_pass.load();
+    stats.stage5_pass = shared.stage5_pass.load();
+    stats.stage10_pass = shared.stage10_pass.load();
+    stats.full_solves = shared.full_solves.load();
+    stats.behavior_unique = stats.checked;
+    stats.behavior_duplicates = stats.checked * 25ULL;
+    stats.behavior_representatives_checked = stats.checked;
+    stats.elapsed_seconds = elapsed;
+
+    std::cout << "Tier " << tier << " behavior-class list complete: checked "
+              << stats.checked << " / " << stats.total_to_run
+              << " class(es), representing " << (stats.checked * 26ULL)
+              << " literal state(s), in " << format_duration(stats.elapsed_seconds)
+              << " (class avg " << format_rate(stats.checked / std::max(0.001, stats.elapsed_seconds))
+              << ", literal-equivalent avg " << format_rate((stats.checked * 26.0) / std::max(0.001, stats.elapsed_seconds)) << "). "
+              << "stage10-pass " << stats.stage10_pass
+              << ", full-solves " << stats.full_solves
               << ", results this tier " << shared.results.size()
               << "\n" << std::flush;
 
@@ -2431,6 +3141,521 @@ void run_smoke_tests() {
     std::cout << "Smoke tests passed.\n" << std::flush;
 }
 
+DecodedState make_decoded_state_from_settings(
+    int tier,
+    const std::string& reflector,
+    const RotorOrder& rotors,
+    const std::string& start,
+    const std::string& rings) {
+
+    std::vector<RotorOrder> orders = rotor_orders_for_tier(tier);
+    int order_index = -1;
+    for (int i = 0; i < static_cast<int>(orders.size()); ++i) {
+        if (orders[i] == rotors) {
+            order_index = i;
+            break;
+        }
+    }
+    if (order_index < 0) {
+        throw std::runtime_error("rotor order is not available in selected tier");
+    }
+
+    DecodedState state;
+    state.tier = tier;
+    state.reflector = reflector_index_by_name(reflector);
+    state.rotor_order_index = order_index;
+    state.rotors = rotors;
+    state.start = parse_triplet(start, "start");
+    state.rings = parse_triplet(rings, "rings");
+    state.ring_index = encode_triplet(state.rings);
+    state.start_index = encode_triplet(state.start);
+    state.state_index = encode_state_index(state.rotor_order_index, state.reflector, state.rings, state.start);
+    return state;
+}
+
+RotorOrder rotor_order_from_names(const std::string& left, const std::string& middle, const std::string& right) {
+    return RotorOrder{
+        rotor_index_by_name(left),
+        rotor_index_by_name(middle),
+        rotor_index_by_name(right)
+    };
+}
+
+bool quiet_full_solve_verifies(
+    const CribProblem& problem,
+    const std::vector<CoreMap>& core_cache,
+    const std::string& plaintext,
+    const std::string& ciphertext,
+    const DecodedState& state,
+    int max_pairs,
+    int max_solutions) {
+
+    MessageCoreMaps maps{};
+    Triplet positions = state.start;
+    generate_prefix_maps(core_cache, state, maps, positions, 0, problem.length);
+    auto solved = solve_plugboard_constraints(problem, maps, problem.length, max_pairs, max_solutions);
+    for (const auto& mapping : solved) {
+        std::vector<std::string> pairs = mapping_to_pairs(mapping);
+        try {
+            std::string verified = verify_solution(
+                plaintext,
+                ciphertext,
+                state.reflector,
+                state.rotors,
+                state.start,
+                state.rings,
+                pairs);
+            if (verified == normalize_text(ciphertext)) {
+                return true;
+            }
+        } catch (const std::exception&) {
+        }
+    }
+    return false;
+}
+
+struct ValidationCheck {
+    std::string name;
+    bool passed = false;
+    std::string detail;
+};
+
+void write_validation_report_json(
+    const std::string& path,
+    const std::vector<ValidationCheck>& checks,
+    int reader_candidate_count,
+    int behavior_sample_count,
+    int expected_reader_candidate_count = 96,
+    int gordon_plaintext_count = -1,
+    int expected_target_pairing_count = 768) {
+
+    bool all_passed = true;
+    for (const auto& check : checks) {
+        all_passed = all_passed && check.passed;
+    }
+
+    std::ofstream out(path);
+    if (!out) {
+        throw std::runtime_error("could not write validation report: " + path);
+    }
+    out << "{\n";
+    out << "  \"passed\": " << (all_passed ? "true" : "false") << ",\n";
+    out << "  \"reader_candidate_count\": " << reader_candidate_count << ",\n";
+    out << "  \"expected_reader_candidate_count\": " << expected_reader_candidate_count << ",\n";
+    out << "  \"gordon_plaintext_count\": "
+        << (gordon_plaintext_count >= 0 ? gordon_plaintext_count : static_cast<int>(gordon_plaintext_targets().size())) << ",\n";
+    out << "  \"expected_target_pairing_count\": " << expected_target_pairing_count << ",\n";
+    out << "  \"behavior_sample_count\": " << behavior_sample_count << ",\n";
+    out << "  \"checks\": [\n";
+    for (size_t i = 0; i < checks.size(); ++i) {
+        const auto& check = checks[i];
+        out << "    {\"name\": \"" << json_escape(check.name)
+            << "\", \"passed\": " << (check.passed ? "true" : "false")
+            << ", \"detail\": \"" << json_escape(check.detail) << "\"}";
+        if (i + 1 != checks.size()) out << ",";
+        out << "\n";
+    }
+    out << "  ]\n";
+    out << "}\n";
+}
+
+void run_validation_battery(const std::string& output_path) {
+    std::vector<ValidationCheck> checks;
+    auto add_check = [&](const std::string& name, bool passed, const std::string& detail) {
+        checks.push_back(ValidationCheck{name, passed, detail});
+    };
+
+    std::vector<ReaderCandidate> readers = generate_reader_candidates();
+    add_check(
+        "reader candidate count",
+        readers.size() == 96,
+        "generated " + std::to_string(readers.size()) + " reader candidates");
+
+    struct ExpectedReader {
+        std::string start;
+        std::string rings;
+        std::string pairs;
+        std::string cipher;
+    };
+    const std::vector<ExpectedReader> expected_readers = {
+        {"GJM", "MMM", "PE AF GR", "BODZZCLWVQYKDVRAV"},
+        {"GJM", "MMM", "PE AF GR UT", "GODZZCWWVQYKDVRAV"},
+        {"GJM", "MMM", "none", "BOBZNKLWVUYHELGWV"},
+        {"GJM", "MMM", "PE GR", "BODZZKLWVUYKDLRFV"},
+        {"MMM", "GJM", "PE AF GR UT", "SSUQIJUVCHKZCTIPN"},
+        {"GJM", "RAE", "PE AF GR", "ZYZYFVWJUFEXKGPOB"},
+    };
+
+    for (size_t i = 0; i < expected_readers.size(); ++i) {
+        const auto& expected = expected_readers[i];
+        bool found = false;
+        std::string detail = "not found";
+        for (const auto& candidate : readers) {
+            if (candidate.start == expected.start &&
+                candidate.rings == expected.rings &&
+                candidate.active_pairs_label == expected.pairs) {
+                found = candidate.ciphertext == expected.cipher;
+                std::ostringstream msg;
+                msg << "rank " << candidate.reader_rank
+                    << " generated " << candidate.ciphertext
+                    << " expected " << expected.cipher;
+                detail = msg.str();
+                break;
+            }
+        }
+        add_check("reader validation case " + std::to_string(i + 1), found, detail);
+    }
+
+    if (!readers.empty()) {
+        const auto& first = readers.front();
+        bool rank1 = first.start == "GJM" &&
+                     first.rings == "MMM" &&
+                     first.active_pairs_label == "PE AF GR" &&
+                     first.ciphertext == "BODZZCLWVQYKDVRAV";
+        add_check("rank 1 reader candidate", rank1, first.start + "/" + first.rings + "/" + first.active_pairs_label + "/" + first.ciphertext);
+    }
+
+    EnigmaMachine canonical = (
+        EnigmaBuilder()
+        .reflector("B")
+        .rotors("III", "I", "IV")
+        .start("GJM")
+        .rings("MMM")
+        .plugboard("PE AF GR UT")
+        .build()
+    );
+    EnigmaMachine reversed = (
+        EnigmaBuilder()
+        .reflector("B")
+        .rotors("III", "I", "IV")
+        .start("GJM")
+        .rings("MMM")
+        .plugboard("EP FA RG TU")
+        .build()
+    );
+    add_check(
+        "plugboard pair direction normalization",
+        canonical.encrypt("THEDEATHWASERASED") == reversed.encrypt("THEDEATHWASERASED"),
+        "PE/EP, AF/FA, GR/RG, UT/TU encrypt identically");
+
+    for (const auto& target : gordon_plaintext_targets()) {
+        size_t len = normalize_text(target.plaintext).size();
+        add_check(
+            "Gordon plaintext length rank " + std::to_string(target.rank),
+            len == MESSAGE_LEN,
+            target.plaintext + " length " + std::to_string(len));
+    }
+
+    struct KnownGordon {
+        std::string name;
+        std::string reflector;
+        RotorOrder rotors;
+        std::string start;
+        std::string rings;
+        std::string plugboard;
+    };
+    const std::string gordon_plain = "REALITYISACONFLUX";
+    const std::vector<KnownGordon> known_hits = {
+        {"known hit no plugboard", "B", rotor_order_from_names("III", "IV", "V"), "SVU", "DVM", ""},
+        {"known hit 3 plugboard pairs", "C", rotor_order_from_names("II", "I", "V"), "KKG", "VCL", "NM FG ZX"},
+        {"known hit 10 plugboard pairs", "C", rotor_order_from_names("III", "V", "II"), "AYQ", "WCU", "LE UK JG HO CR ZS MX YT PA IW"},
+        {"known hit behavior-class", "B", rotor_order_from_names("II", "I", "IV"), "NDN", "WKZ", "GQ CT UD IE BY"},
+    };
+
+    std::vector<RotorOrder> tier2_orders = rotor_orders_for_tier(2);
+    std::vector<CoreMap> tier2_cache = build_core_cache(tier2_orders);
+    for (const auto& known : known_hits) {
+        DecodedState literal = make_decoded_state_from_settings(2, known.reflector, known.rotors, known.start, known.rings);
+        EnigmaMachine machine(
+            literal.reflector,
+            literal.rotors,
+            literal.start,
+            literal.rings,
+            known.plugboard);
+        std::string encrypted = machine.encrypt(gordon_plain);
+        bool generated_valid = encrypted.size() == MESSAGE_LEN &&
+                               !same_position_letter_exists(gordon_plain, encrypted);
+        add_check(
+            known.name + " direct encryption",
+            generated_valid,
+            "generated corrected-convention ciphertext " + encrypted);
+
+        CribProblem problem(gordon_plain, encrypted);
+        bool compressed_ok = quiet_full_solve_verifies(
+            problem,
+            tier2_cache,
+            gordon_plain,
+            encrypted,
+            literal,
+            10,
+            32);
+        add_check(
+            known.name + " literal/behavior-compressed representative recovery",
+            compressed_ok,
+            "known literal state full-solve verifies");
+
+        uint64_t class_index = behavior_class_index_for_state(literal);
+        BehaviorClassState item = decode_behavior_class(class_index, 2, tier2_orders);
+        DecodedState representative = representative_state_for_behavior_class(item);
+        bool direct_ok = quiet_full_solve_verifies(
+            problem,
+            tier2_cache,
+            gordon_plain,
+            encrypted,
+            representative,
+            10,
+            32);
+        add_check(
+            known.name + " behavior-direct representative recovery",
+            direct_ok,
+            "class " + std::to_string(class_index) + " representative state " + std::to_string(representative.state_index));
+    }
+
+    std::vector<DecodedState> behavior_samples;
+    auto add_sample = [&](const std::string& reflector, const RotorOrder& rotors, const std::string& start, const std::string& rings) {
+        behavior_samples.push_back(make_decoded_state_from_settings(2, reflector, rotors, start, rings));
+    };
+    RotorOrder sample_rotors = rotor_order_from_names("III", "I", "IV");
+    add_sample("B", sample_rotors, "GJJ", "RAE");
+    add_sample("B", sample_rotors, "GJK", "RAE");
+    add_sample("B", sample_rotors, "GJL", "RAE");
+    add_sample("B", sample_rotors, "GQJ", "DVM");
+    add_sample("B", sample_rotors, "GRJ", "DVM");
+    add_sample("C", rotor_order_from_names("II", "I", "V"), "KKG", "VCL");
+    add_sample("C", rotor_order_from_names("III", "V", "II"), "AYQ", "WCU");
+    add_sample("B", rotor_order_from_names("II", "I", "IV"), "NDN", "WKZ");
+    uint64_t seed = 0xC0FFEE123456789ULL;
+    for (int i = 0; i < 32; ++i) {
+        seed = seed * 6364136223846793005ULL + 1442695040888963407ULL;
+        uint64_t idx = seed % total_states_for_tier(tier2_orders);
+        behavior_samples.push_back(decode_state(idx, 2, tier2_orders));
+    }
+
+    bool behavior_ok = true;
+    std::string behavior_detail;
+    for (size_t i = 0; i < behavior_samples.size(); ++i) {
+        const auto& sample = behavior_samples[i];
+        uint64_t class_index = behavior_class_index_for_state(sample);
+        BehaviorClassState item = decode_behavior_class(class_index, 2, tier2_orders);
+        DecodedState representative = representative_state_for_behavior_class(item);
+        bool same = same_core_maps_for_behavior_key(tier2_cache, sample, representative, MESSAGE_LEN);
+        if (!same) {
+            behavior_ok = false;
+            behavior_detail = "sample " + std::to_string(i) + " failed at class " + std::to_string(class_index);
+            break;
+        }
+    }
+    if (behavior_ok) {
+        behavior_detail = std::to_string(behavior_samples.size()) + " sampled states matched their direct representatives";
+    }
+    add_check("behavior-direct core-map equivalence samples", behavior_ok, behavior_detail);
+
+    write_validation_report_json(output_path, checks, static_cast<int>(readers.size()), static_cast<int>(behavior_samples.size()));
+
+    bool all_passed = true;
+    for (const auto& check : checks) all_passed = all_passed && check.passed;
+    if (!all_passed) {
+        throw std::runtime_error("validation battery failed; see " + output_path);
+    }
+    std::cout << "Validation battery passed. Wrote " << output_path << "\n" << std::flush;
+}
+
+struct MixedKnownHit {
+    int length = 0;
+    int case_number = 0;
+    std::string reader_plaintext;
+    std::string reader_start;
+    std::string reader_rings;
+    std::string reader_plugs;
+    std::string reader_ciphertext;
+    std::string gordon_plaintext;
+    std::string gordon_reflector;
+    std::array<std::string, 3> gordon_rotors;
+    std::string gordon_start;
+    std::string gordon_rings;
+    std::string gordon_plugs;
+};
+
+std::vector<MixedKnownHit> mixed_known_hits() {
+    return {
+        {7, 1, "TESTONE", "GJM", "MMM", "PE AF GR", "BPVBFZX", "TTAVGHO", "C", {"II","I","III"}, "RZP", "CHO", "QY DF HJ"},
+        {7, 2, "TESTTWO", "MMM", "GJM", "PE AF GR UT", "SCYYKPJ", "JFDSGRL", "B", {"IV","II","III"}, "FYC", "BFV", "EM XY PW"},
+        {7, 3, "TESTTHR", "GJM", "RAE", "none", "ZZDPVEU", "WHCSXFI", "C", {"III","I","II"}, "YWW", "REA", "EI QX JU AC"},
+        {7, 4, "TESTFOR", "RAE", "GJM", "PE GR", "DFZEKXF", "RLBIUMV", "B", {"III","II","I"}, "BPH", "UEH", "none"},
+        {7, 5, "TESTFIV", "GJM", "MUN", "AF GR UT", "FFPCQWL", "SMTTFHP", "C", {"III","V","II"}, "XJA", "IDO", "XY FW JK HQ NV ES"},
+        {7, 6, "TESTSIX", "MUN", "GJM", "PE UT", "ZSEFNLO", "CEZSDMW", "C", {"II","V","III"}, "KYY", "HTQ", "CR VW LX"},
+        {7, 7, "TESTSEV", "GJM", "MMM", "UT", "RPVPGGN", "ARWXNHJ", "B", {"I","II","III"}, "HKE", "XTT", "none"},
+        {7, 8, "TESTEIG", "MMM", "GJM", "PE", "CCYXIVR", "YELAUIT", "B", {"II","V","IV"}, "XPE", "QVM", "NZ AV DY GL QW"},
+        {7, 9, "TESTNIN", "GJM", "RAE", "GR", "ZZDPISZ", "BXUIUGM", "C", {"I","V","II"}, "DRK", "JQG", "AP"},
+        {7, 10, "TESTTEN", "RAE", "GJM", "AF UT", "EDZJNKS", "VWULZJV", "C", {"V","III","I"}, "RXG", "WHE", "JO LN HY"},
+
+        {14, 1, "READERTESTONEA", "GJM", "MMM", "PE AF GR", "QPMZZPLAEYBIFV", "DFYCSSQIOAKJMG", "C", {"IV","III","I"}, "AYB", "QXT", "none"},
+        {14, 2, "READERTESTTWOA", "MMM", "GJM", "PE AF GR UT", "LCXQIEUWMNHJGT", "ZJJMGIGRDKCQMZ", "C", {"II","V","III"}, "IRS", "HZT", "none"},
+        {14, 3, "READERTESTTHRA", "GJM", "RAE", "none", "FZTYRGWWOOOFYK", "NSLQAWUJQZCVLI", "B", {"I","IV","III"}, "JDA", "MVR", "CV LO AI JK"},
+        {14, 4, "READERTESTFORA", "RAE", "GJM", "PE GR", "QFRGCEZVJRKEPR", "YJYZWFYHBXPHJY", "C", {"IV","III","II"}, "EZM", "DYJ", "BR CW AX QZ HS JU"},
+        {14, 5, "READERTESTFIVA", "GJM", "MUN", "AF GR UT", "YFQZLLIUECSWAV", "QPWXBPLCMGRAOT", "B", {"I","III","V"}, "OFK", "SPT", "EJ"},
+        {14, 6, "READERTESTSIXA", "MUN", "GJM", "PE UT", "ASIJAOIBOQTDDL", "TDHUMVQJWSMVMP", "C", {"I","II","IV"}, "VEI", "KAK", "none"},
+        {14, 7, "READERTESTSEVA", "GJM", "MMM", "UT", "TPOZNSWVPAYHML", "ZVRFJTTFFZCZAU", "B", {"III","V","II"}, "UBL", "SQB", "GM BZ"},
+        {14, 8, "READERTESTEIGA", "MMM", "GJM", "PE", "OCNQIQUWMDVFCX", "IOAOPNHAQQIGAY", "B", {"II","I","V"}, "XGV", "ZKU", "LX AN CE MV"},
+        {14, 9, "READERTESTNINA", "GJM", "RAE", "GR", "QZTYGGWWOOBJIK", "CAFDNFAJGKYPFX", "C", {"III","V","IV"}, "INU", "NMF", "GS IP BC UV"},
+        {14, 10, "READERTESTTENA", "RAE", "GJM", "AF UT", "NDXRBVJWJZHVQX", "KAZAOMQTMBNAVK", "B", {"II","III","V"}, "ZTF", "KFY", "none"},
+
+        {17, 1, "READERTESTCASEONE", "GJM", "MMM", "PE AF GR", "QPMZZPLAEYLLHYCGB", "DEEDBXTNXMOUDVHOT", "B", {"III","IV","I"}, "KZO", "WLL", "none"},
+        {17, 2, "READERTESTCASETWO", "MMM", "GJM", "PE AF GR UT", "LCXQIEUWMNBINNAZF", "ZVVBVTFJKTUPEJZRO", "C", {"V","IV","III"}, "CTK", "HJV", "EY CU KN"},
+        {17, 3, "READERTESTCASETHR", "GJM", "RAE", "none", "FZTYRGWWOOYVWHFDL", "PMDFSKRAWNCGAXYWU", "C", {"V","II","IV"}, "LHO", "FMB", "DO HN GT AI"},
+        {17, 4, "READERTESTCASEFOR", "RAE", "GJM", "PE GR", "QFRGCEZVJRXJVBLJZ", "BZXRPSBURIOACZJWV", "C", {"V","II","III"}, "QUE", "BGZ", "JO SX TU BY DQ"},
+        {17, 5, "READERTESTCASEFIV", "GJM", "MUN", "AF GR UT", "YFQZLLIUECQXYDRTU", "OMXMDNGFWTEYSYLRF", "C", {"V","III","I"}, "BIY", "WXO", "DK AJ"},
+        {17, 6, "READERTESTCASESIX", "MUN", "GJM", "PE UT", "ASIJAOIBOQUNQCROC", "QXNBLIVTJLCTBHYIF", "C", {"III","I","V"}, "XRY", "IZX", "UX KR AG JW"},
+        {17, 7, "READERTESTCASESEV", "GJM", "MMM", "UT", "TPOZNSWVPALMHTGWD", "RQGWOMFDQFQQNSPXU", "C", {"I","IV","V"}, "IMK", "FQJ", "DV JS"},
+        {17, 8, "READERTESTCASEEIG", "MMM", "GJM", "PE", "OCNQIQUWMDBQNNLHK", "VOQCCICUCYLPHSKIC", "C", {"III","V","IV"}, "VGQ", "FST", "KR BN JU AE"},
+        {17, 9, "READERTESTCASENIN", "GJM", "RAE", "GR", "QZTYGGWWOOYVWHCMA", "TLIMSXBVYXAXTSYHL", "B", {"I","II","IV"}, "FAJ", "INF", "MV"},
+        {17, 10, "READERTESTCASETEN", "RAE", "GJM", "AF UT", "NDXRBVJWJZXYVTNXU", "STFHQRPJLGQCRHZCP", "C", {"III","V","I"}, "RSV", "GZZ", "JX ER HL YZ"},
+    };
+}
+
+std::string none_to_empty(const std::string& pairs) {
+    return normalize_text(pairs) == "NONE" ? "" : pairs;
+}
+
+void run_mixed_length_validation(const std::string& output_path) {
+    std::vector<ValidationCheck> checks;
+    auto add_check = [&](const std::string& name, bool passed, const std::string& detail) {
+        checks.push_back(ValidationCheck{name, passed, detail});
+    };
+
+    std::vector<RotorOrder> tier2_orders = rotor_orders_for_tier(2);
+    std::vector<CoreMap> tier2_cache = build_core_cache(tier2_orders);
+    std::map<int, int> case_count_by_length;
+
+    for (const auto& hit : mixed_known_hits()) {
+        std::string prefix = "known-hit length " + std::to_string(hit.length) +
+            " case " + std::to_string(hit.case_number);
+        ++case_count_by_length[hit.length];
+
+        EnigmaMachine reader = (
+            EnigmaBuilder()
+            .reflector("B")
+            .rotors("III", "I", "IV")
+            .start(hit.reader_start)
+            .rings(hit.reader_rings)
+            .plugboard(none_to_empty(hit.reader_plugs))
+            .build()
+        );
+        std::string reader_cipher = reader.encrypt(hit.reader_plaintext);
+        add_check(prefix + " reader encryption",
+            reader_cipher == hit.reader_ciphertext,
+            "got " + reader_cipher + " expected " + hit.reader_ciphertext);
+
+        EnigmaMachine gordon = (
+            EnigmaBuilder()
+            .reflector(hit.gordon_reflector)
+            .rotors(hit.gordon_rotors[0], hit.gordon_rotors[1], hit.gordon_rotors[2])
+            .start(hit.gordon_start)
+            .rings(hit.gordon_rings)
+            .plugboard(none_to_empty(hit.gordon_plugs))
+            .build()
+        );
+        std::string gordon_cipher = gordon.encrypt(hit.gordon_plaintext);
+        add_check(prefix + " Gordon encryption",
+            gordon_cipher == hit.reader_ciphertext,
+            "got " + gordon_cipher + " expected " + hit.reader_ciphertext);
+
+        bool no_self = !same_position_letter_exists(hit.gordon_plaintext, hit.reader_ciphertext);
+        add_check(prefix + " no-self filter",
+            no_self,
+            no_self ? "same-length pairing is viable" : "would be incorrectly skipped");
+
+        CribProblem problem(hit.gordon_plaintext, hit.reader_ciphertext);
+        DecodedState state = make_decoded_state_from_settings(
+            2,
+            hit.gordon_reflector,
+            rotor_order_from_names(hit.gordon_rotors[0], hit.gordon_rotors[1], hit.gordon_rotors[2]),
+            hit.gordon_start,
+            hit.gordon_rings);
+        bool solver_ok = quiet_full_solve_verifies(
+            problem,
+            tier2_cache,
+            hit.gordon_plaintext,
+            hit.reader_ciphertext,
+            state,
+            10,
+            1000);
+        add_check(prefix + " targeted solver recovery",
+            solver_ok,
+            solver_ok ? "listed/equivalent setting verifies" : "solver failed at listed setting");
+    }
+
+    add_check("known-hit length 7 case count", case_count_by_length[7] == 10, std::to_string(case_count_by_length[7]));
+    add_check("known-hit length 14 case count", case_count_by_length[14] == 10, std::to_string(case_count_by_length[14]));
+    add_check("known-hit length 17 case count", case_count_by_length[17] == 10, std::to_string(case_count_by_length[17]));
+
+    std::vector<std::string> mixed_reader_raw = {
+        "READERTESTONEA",
+        "READERTESTCASEONE",
+        "TESTONE",
+    };
+    std::vector<std::string> mixed_gordon_raw = {
+        "DFYCSSQIOAKJMG",
+        "DEEDBXTNXMOUDVHOT",
+        "TTAVGHO",
+    };
+    std::vector<SkippedTextEntry> reader_skipped;
+    std::vector<SkippedTextEntry> gordon_skipped;
+    auto reader_entries = normalize_text_entries(mixed_reader_raw, reader_skipped);
+    auto gordon_entries = normalize_text_entries(mixed_gordon_raw, gordon_skipped);
+    auto mixed_candidates = generate_reader_candidates_for_plaintexts(reader_entries);
+    bool generated_lengths_ok = true;
+    for (const auto& candidate : mixed_candidates) {
+        generated_lengths_ok = generated_lengths_ok &&
+            normalize_text(candidate.reader_plaintext).size() == normalize_text(candidate.ciphertext).size();
+    }
+    add_check("mixed-list generated ciphertext lengths",
+        generated_lengths_ok,
+        "generated " + std::to_string(mixed_candidates.size()) + " candidates");
+    add_check("mixed-list input order preserved",
+        mixed_candidates.size() >= 193 &&
+        mixed_candidates[0].normalized_length == 14 &&
+        mixed_candidates[96].normalized_length == 17 &&
+        mixed_candidates[192].normalized_length == 7,
+        "order was 14 then 17 then 7");
+
+    int same_length_pairings = 0;
+    int mismatched_pairings = 0;
+    int impossible_skips = 0;
+    for (const auto& candidate : mixed_candidates) {
+        for (const auto& gordon_entry : gordon_entries) {
+            if (candidate.normalized_length != gordon_entry.length) {
+                ++mismatched_pairings;
+                continue;
+            }
+            ++same_length_pairings;
+            if (same_position_letter_exists(gordon_entry.normalized, candidate.ciphertext)) {
+                ++impossible_skips;
+            }
+        }
+    }
+    add_check("mixed-list same-length pairing count", same_length_pairings == 288, std::to_string(same_length_pairings));
+    add_check("mixed-list mismatched lengths not paired", mismatched_pairings == 576, std::to_string(mismatched_pairings));
+    add_check("mixed-list no-self filter exercised", impossible_skips > 0, std::to_string(impossible_skips));
+
+    write_validation_report_json(
+        output_path,
+        checks,
+        static_cast<int>(mixed_candidates.size()),
+        0,
+        288,
+        static_cast<int>(gordon_entries.size()),
+        288);
+    bool all_passed = true;
+    for (const auto& check : checks) {
+        all_passed = all_passed && check.passed;
+    }
+    if (!all_passed) {
+        throw std::runtime_error("mixed-length validation failed; see " + output_path);
+    }
+    std::cout << "Mixed-length validation passed. Wrote " << output_path << "\n" << std::flush;
+}
+
 SearchOptions parse_args(int argc, char** argv) {
     SearchOptions options;
     unsigned int hardware = std::thread::hardware_concurrency();
@@ -2475,6 +3700,8 @@ SearchOptions parse_args(int argc, char** argv) {
             options.output = need_value(arg);
         } else if (arg == "--state-list-binary") {
             options.state_list_binary = need_value(arg);
+        } else if (arg == "--behavior-class-list-binary") {
+            options.behavior_class_list_binary = need_value(arg);
         } else if (arg == "--behavior-compressed") {
             options.behavior_compressed = true;
         } else if (arg == "--behavior-direct") {
@@ -2483,6 +3710,18 @@ SearchOptions parse_args(int argc, char** argv) {
             options.self_test = true;
         } else if (arg == "--skip-initial-tests") {
             options.skip_initial_tests = true;
+        } else if (arg == "--generate-reader-candidates") {
+            options.generate_reader_candidates = true;
+        } else if (arg == "--generate-mixed-reader-candidates") {
+            options.generate_mixed_reader_candidates = true;
+        } else if (arg == "--reader-plaintexts-file") {
+            options.reader_plaintexts_file = need_value(arg);
+        } else if (arg == "--gordon-plaintexts-file") {
+            options.gordon_plaintexts_file = need_value(arg);
+        } else if (arg == "--validation-battery") {
+            options.validation_battery = true;
+        } else if (arg == "--mixed-length-validation") {
+            options.mixed_length_validation = true;
         } else if (arg == "--help" || arg == "-h") {
             std::cout
                 << "Usage: enigma_m3_search_cpp [options]\n"
@@ -2498,10 +3737,17 @@ SearchOptions parse_args(int argc, char** argv) {
                 << "  --chunk-size N               Work chunk size (default 4096)\n"
                 << "  --output PATH                JSON output path\n"
                 << "  --state-list-binary PATH     Full-solve explicit uint64 state-list produced by GPU filter\n"
+                << "  --behavior-class-list-binary PATH  Full-solve explicit uint64 behavior-class list produced by GPU filter\n"
                 << "  --behavior-compressed        Test one representative per exact core-map behavior bucket\n"
                 << "  --behavior-direct            Directly iterate exact behavior classes; start/max count classes\n"
                 << "  --self-test                  Run smoke tests and exit\n"
-                << "  --skip-initial-tests         Skip smoke tests before searching\n";
+                << "  --skip-initial-tests         Skip smoke tests before searching\n"
+                << "  --generate-reader-candidates Generate the 96 finalized reader candidates to --output and exit\n"
+                << "  --generate-mixed-reader-candidates Generate mixed-length reader/Gordon candidates to --output and exit\n"
+                << "  --reader-plaintexts-file PATH  Reader plaintext list for mixed generation\n"
+                << "  --gordon-plaintexts-file PATH  Gordon plaintext list for mixed generation\n"
+                << "  --validation-battery         Run reader/known-hit/behavior validation to --output and exit\n"
+                << "  --mixed-length-validation    Run 7/14/17 mixed-length known-hit validation to --output and exit\n";
             std::exit(0);
         } else {
             throw std::runtime_error("unknown argument: " + arg);
@@ -2539,6 +3785,37 @@ int main(int argc, char** argv) {
             return 0;
         }
 
+        if (options.generate_reader_candidates) {
+            write_reader_candidates_json(options.output);
+            std::cout << "Wrote generated reader candidates to " << options.output << "\n" << std::flush;
+            return 0;
+        }
+
+        if (options.generate_mixed_reader_candidates) {
+            if (options.reader_plaintexts_file.empty() || options.gordon_plaintexts_file.empty()) {
+                throw std::runtime_error("--generate-mixed-reader-candidates requires --reader-plaintexts-file and --gordon-plaintexts-file");
+            }
+            write_mixed_reader_candidates_json(options.output, options.reader_plaintexts_file, options.gordon_plaintexts_file);
+            std::cout << "Wrote mixed-length reader candidates to " << options.output << "\n" << std::flush;
+            return 0;
+        }
+
+        if (options.validation_battery) {
+            if (!options.skip_initial_tests) {
+                run_smoke_tests();
+            }
+            run_validation_battery(options.output);
+            return 0;
+        }
+
+        if (options.mixed_length_validation) {
+            if (!options.skip_initial_tests) {
+                run_smoke_tests();
+            }
+            run_mixed_length_validation(options.output);
+            return 0;
+        }
+
         if (!options.skip_initial_tests) {
             run_smoke_tests();
         }
@@ -2558,6 +3835,10 @@ int main(int argc, char** argv) {
 
         std::vector<TierStats> stats;
         std::vector<Result> results;
+        if (!options.state_list_binary.empty() && !options.behavior_class_list_binary.empty()) {
+            throw std::runtime_error("--state-list-binary and --behavior-class-list-binary are mutually exclusive");
+        }
+
         if (!options.state_list_binary.empty()) {
             if (options.behavior_compressed || options.behavior_direct) {
                 throw std::runtime_error("behavior-compressed modes cannot be combined with --state-list-binary");
@@ -2573,6 +3854,23 @@ int main(int argc, char** argv) {
                 plaintext,
                 ciphertext,
                 state_list,
+                results);
+            stats.push_back(tier_stats);
+        } else if (!options.behavior_class_list_binary.empty()) {
+            if (options.behavior_compressed) {
+                throw std::runtime_error("behavior-compressed cannot be combined with --behavior-class-list-binary");
+            }
+            if (tiers.size() != 1) {
+                throw std::runtime_error("--behavior-class-list-binary requires --tier 1 or --tier 2");
+            }
+            std::vector<uint64_t> class_list = read_state_list_binary(options.behavior_class_list_binary);
+            TierStats tier_stats = run_tier_behavior_class_list_search(
+                tiers.front(),
+                options,
+                problem,
+                plaintext,
+                ciphertext,
+                class_list,
                 results);
             stats.push_back(tier_stats);
         } else {

@@ -262,7 +262,7 @@ The old scan-and-deduplicate behavior compression experiment is not adopted:
 - `--behavior-compressed` is exact, but it scans literal states to discover
   behavior buckets, so bucket construction dominates the run.
 - `--behavior-direct` is the useful version. It directly enumerates behavior
-  classes without scanning, and expands any hit back to all 104 literal
+  classes without scanning, and expands any hit back to all 26 literal
   ring/start states.
 - A combined eight-candidate CUDA kernel was disabled because it did not match
   exact survivor counts in validation.

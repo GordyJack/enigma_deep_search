@@ -58,8 +58,8 @@ static const char* REFLECTOR_WIRINGS[REFLECTOR_COUNT] = {
 
 struct Candidate {
     int id;
-    const char* label;
-    const char* ciphertext;
+    std::string label;
+    std::string ciphertext;
 };
 
 static const Candidate DEFAULT_CANDIDATES[] = {
@@ -109,10 +109,9 @@ __device__ __forceinline__ void decode_triplet(uint32_t index, int out[3]) {
 }
 
 __device__ __forceinline__ void step_positions(const uint8_t rotors[3], const int rings[3], int pos[3]) {
-    int middle_turnover = (static_cast<int>(d_notches[rotors[1]]) - rings[1] + 26) % 26;
-    int right_turnover = (static_cast<int>(d_notches[rotors[2]]) - rings[2] + 26) % 26;
-    bool middle_at_notch = pos[1] == middle_turnover;
-    bool right_at_notch = pos[2] == right_turnover;
+    (void)rings;
+    bool middle_at_notch = pos[1] == static_cast<int>(d_notches[rotors[1]]);
+    bool right_at_notch = pos[2] == static_cast<int>(d_notches[rotors[2]]);
     if (middle_at_notch) pos[0] = (pos[0] + 1) % 26;
     if (middle_at_notch || right_at_notch) pos[1] = (pos[1] + 1) % 26;
     pos[2] = (pos[2] + 1) % 26;
@@ -358,9 +357,61 @@ __device__ void build_state_maps(uint64_t absolute_index, uint8_t maps[MAX_PREFI
     }
 }
 
+__device__ __forceinline__ int representative_ring_for_threshold(uint8_t rotor, int threshold) {
+    return (static_cast<int>(d_notches[rotor]) - threshold + 26) % 26;
+}
+
+__device__ void build_behavior_class_maps(uint64_t class_index, uint8_t maps[MAX_PREFIX][ALPHA]) {
+    uint64_t work = class_index;
+    uint32_t offset_idx = static_cast<uint32_t>(work % TRIPLET_COUNT);
+    work /= TRIPLET_COUNT;
+    int right_threshold = static_cast<int>(work % 26);
+    work /= 26;
+    int middle_threshold = static_cast<int>(work % 26);
+    work /= 26;
+    int reflector = static_cast<int>(work % REFLECTOR_COUNT);
+    work /= REFLECTOR_COUNT;
+    int rotor_order_index = static_cast<int>(work % d_rotor_order_count);
+
+    uint8_t rotors[3] = {
+        d_rotor_orders[rotor_order_index][0],
+        d_rotor_orders[rotor_order_index][1],
+        d_rotor_orders[rotor_order_index][2],
+    };
+    int offsets[3];
+    decode_triplet(offset_idx, offsets);
+
+    int rings[3] = {
+        0,
+        representative_ring_for_threshold(rotors[1], middle_threshold),
+        representative_ring_for_threshold(rotors[2], right_threshold),
+    };
+    int pos[3] = {
+        offsets[0],
+        (offsets[1] + rings[1]) % 26,
+        (offsets[2] + rings[2]) % 26,
+    };
+
+    for (int i = 0; i < d_prefix_len; ++i) {
+        step_positions(rotors, rings, pos);
+        for (int x = 0; x < ALPHA; ++x) {
+            maps[i][x] = core_letter(x, reflector, rotors, rings, pos);
+        }
+    }
+}
+
 __device__ bool state_passes_prefix(uint64_t absolute_index) {
     uint8_t maps[MAX_PREFIX][ALPHA];
     build_state_maps(absolute_index, maps);
+
+    int8_t mapping[ALPHA];
+    for (int i = 0; i < ALPHA; ++i) mapping[i] = UNKNOWN;
+    return dfs_prefix(mapping, 0, maps, 0);
+}
+
+__device__ bool behavior_class_passes_prefix(uint64_t class_index) {
+    uint8_t maps[MAX_PREFIX][ALPHA];
+    build_behavior_class_maps(class_index, maps);
 
     int8_t mapping[ALPHA];
     for (int i = 0; i < ALPHA; ++i) mapping[i] = UNKNOWN;
@@ -377,7 +428,26 @@ __global__ void prefix_filter_kernel(uint64_t start_index,
         uint64_t absolute = start_index + item;
         if (state_passes_prefix(absolute)) {
             uint32_t slot = atomicAdd(survivor_count, 1u);
-            survivors[slot] = absolute;
+            if (survivors != nullptr) {
+                survivors[slot] = absolute;
+            }
+        }
+    }
+}
+
+__global__ void prefix_filter_behavior_kernel(uint64_t start_index,
+                                             uint64_t classes,
+                                             uint64_t* survivors,
+                                             uint32_t* survivor_count) {
+    uint64_t tid = static_cast<uint64_t>(blockIdx.x) * blockDim.x + threadIdx.x;
+    uint64_t stride = static_cast<uint64_t>(gridDim.x) * blockDim.x;
+    for (uint64_t item = tid; item < classes; item += stride) {
+        uint64_t absolute = start_index + item;
+        if (behavior_class_passes_prefix(absolute)) {
+            uint32_t slot = atomicAdd(survivor_count, 1u);
+            if (survivors != nullptr) {
+                survivors[slot] = absolute;
+            }
         }
     }
 }
@@ -397,7 +467,32 @@ __global__ void prefix_filter_multi_kernel(uint64_t start_index,
             for (int i = 0; i < ALPHA; ++i) mapping[i] = UNKNOWN;
             if (dfs_prefix_candidate(ci, mapping, 0, maps, 0)) {
                 uint32_t slot = atomicAdd(&survivor_counts[ci], 1u);
-                survivors[static_cast<uint64_t>(ci) * states + slot] = absolute;
+                if (survivors != nullptr) {
+                    survivors[static_cast<uint64_t>(ci) * states + slot] = absolute;
+                }
+            }
+        }
+    }
+}
+
+__global__ void prefix_filter_behavior_multi_kernel(uint64_t start_index,
+                                                    uint64_t classes,
+                                                    uint64_t* survivors,
+                                                    uint32_t* survivor_counts) {
+    uint64_t tid = static_cast<uint64_t>(blockIdx.x) * blockDim.x + threadIdx.x;
+    uint64_t stride = static_cast<uint64_t>(gridDim.x) * blockDim.x;
+    for (uint64_t item = tid; item < classes; item += stride) {
+        uint64_t absolute = start_index + item;
+        uint8_t maps[MAX_PREFIX][ALPHA];
+        build_behavior_class_maps(absolute, maps);
+        for (int ci = 0; ci < d_candidate_count; ++ci) {
+            int8_t mapping[ALPHA];
+            for (int i = 0; i < ALPHA; ++i) mapping[i] = UNKNOWN;
+            if (dfs_prefix_candidate(ci, mapping, 0, maps, 0)) {
+                uint32_t slot = atomicAdd(&survivor_counts[ci], 1u);
+                if (survivors != nullptr) {
+                    survivors[static_cast<uint64_t>(ci) * classes + slot] = absolute;
+                }
             }
         }
     }
@@ -407,8 +502,12 @@ struct Options {
     std::string plaintext = "REALITYISACONFLUX";
     std::vector<Candidate> candidates;
     std::string ciphertext;
+    std::string candidate_file;
     bool default_candidates = false;
     bool combined_candidates = false;
+    bool allow_experimental_combined = false;
+    bool behavior_direct = false;
+    bool count_only = false;
     int tier = 2;
     uint64_t start_index = 0;
     uint64_t max_states = 10000000;
@@ -424,6 +523,36 @@ static uint64_t parse_u64(const std::string& text) {
     return std::strtoull(text.c_str(), nullptr, 10);
 }
 
+static std::vector<Candidate> read_candidate_file(const std::string& path) {
+    std::ifstream input(path);
+    if (!input) {
+        std::fprintf(stderr, "could not open candidate file: %s\n", path.c_str());
+        std::exit(2);
+    }
+
+    std::vector<Candidate> candidates;
+    std::string line;
+    while (std::getline(input, line)) {
+        if (line.empty() || line[0] == '#') continue;
+        std::vector<std::string> fields;
+        std::string field;
+        std::istringstream row(line);
+        while (std::getline(row, field, '\t')) {
+            fields.push_back(field);
+        }
+        if (fields.size() < 3) {
+            std::fprintf(stderr, "bad candidate-file row, expected id<TAB>label<TAB>ciphertext: %s\n", line.c_str());
+            std::exit(2);
+        }
+        candidates.push_back(Candidate{
+            static_cast<int>(parse_u64(fields[0])),
+            fields[1],
+            clean_letters(fields[2])
+        });
+    }
+    return candidates;
+}
+
 static Options parse_args(int argc, char** argv) {
     Options opt;
     for (int i = 1; i < argc; ++i) {
@@ -437,8 +566,12 @@ static Options parse_args(int argc, char** argv) {
         };
         if (arg == "--plaintext") opt.plaintext = need("--plaintext");
         else if (arg == "--ciphertext") opt.ciphertext = need("--ciphertext");
+        else if (arg == "--candidate-file") opt.candidate_file = need("--candidate-file");
         else if (arg == "--default-candidates") opt.default_candidates = true;
         else if (arg == "--combined-candidates") opt.combined_candidates = true;
+        else if (arg == "--allow-experimental-combined") opt.allow_experimental_combined = true;
+        else if (arg == "--behavior-direct") opt.behavior_direct = true;
+        else if (arg == "--count-only") opt.count_only = true;
         else if (arg == "--tier") opt.tier = static_cast<int>(parse_u64(need("--tier")));
         else if (arg == "--start-index") opt.start_index = parse_u64(need("--start-index"));
         else if (arg == "--max-states") opt.max_states = parse_u64(need("--max-states"));
@@ -449,22 +582,24 @@ static Options parse_args(int argc, char** argv) {
         else if (arg == "--output") opt.output = need("--output");
         else if (arg == "--survivor-dir") opt.survivor_dir = need("--survivor-dir");
         else if (arg == "--help") {
-            std::puts("Usage: enigma_cuda_prefix_filter [--ciphertext TEXT | --default-candidates] --max-states N");
+            std::puts("Usage: enigma_cuda_prefix_filter [--ciphertext TEXT | --candidate-file PATH | --default-candidates] --max-states N [--count-only]");
             std::exit(0);
         } else {
             std::fprintf(stderr, "unknown arg: %s\n", arg.c_str());
             std::exit(2);
         }
     }
-    if (opt.default_candidates) {
+    if (opt.combined_candidates && !opt.allow_experimental_combined) {
+        std::fprintf(stderr, "--combined-candidates is experimental and disabled by default; pass --allow-experimental-combined to benchmark it\n");
+        std::exit(2);
+    }
+    if (!opt.candidate_file.empty()) {
+        opt.candidates = read_candidate_file(opt.candidate_file);
+    } else if (opt.default_candidates) {
         opt.candidates.assign(std::begin(DEFAULT_CANDIDATES), std::end(DEFAULT_CANDIDATES));
     } else {
         if (opt.ciphertext.empty()) opt.ciphertext = "ZYZYFVWJUFEXKGPOB";
-        opt.candidates.push_back({0, "custom", opt.ciphertext.c_str()});
-    }
-    if (opt.combined_candidates) {
-        std::fprintf(stderr, "--combined-candidates is disabled: the experimental kernel did not match exact survivor counts\n");
-        std::exit(2);
+        opt.candidates.push_back({0, "custom", clean_letters(opt.ciphertext)});
     }
     if (opt.prefix_len < 1 || opt.prefix_len > MAX_PREFIX) {
         std::fprintf(stderr, "--prefix-len must be 1..%d\n", MAX_PREFIX);
@@ -711,7 +846,9 @@ int main(int argc, char** argv) {
     uint64_t* d_survivors = nullptr;
     uint32_t* d_count = nullptr;
     uint64_t survivor_multiplier = opt.combined_candidates ? static_cast<uint64_t>(opt.candidates.size()) : 1ULL;
-    check_cuda(cudaMalloc(&d_survivors, sizeof(uint64_t) * opt.max_states * survivor_multiplier), "malloc survivors");
+    if (!opt.count_only) {
+        check_cuda(cudaMalloc(&d_survivors, sizeof(uint64_t) * opt.max_states * survivor_multiplier), "malloc survivors");
+    }
     check_cuda(cudaMalloc(&d_count, sizeof(uint32_t) * survivor_multiplier), "malloc count");
 
     std::ofstream json(opt.output, std::ios::binary);
@@ -725,6 +862,8 @@ int main(int argc, char** argv) {
     json << "  \"plaintext\": \"" << clean_letters(opt.plaintext) << "\",\n";
     json << "  \"start_index\": " << opt.start_index << ",\n";
     json << "  \"states\": " << opt.max_states << ",\n";
+    json << "  \"behavior_direct\": " << (opt.behavior_direct ? "true" : "false") << ",\n";
+    json << "  \"count_only\": " << (opt.count_only ? "true" : "false") << ",\n";
     json << "  \"prefix_len\": " << opt.prefix_len << ",\n";
     json << "  \"combined_candidates\": " << (opt.combined_candidates ? "true" : "false") << ",\n";
     json << "  \"blocks\": " << blocks << ",\n";
@@ -740,7 +879,11 @@ int main(int argc, char** argv) {
         check_cuda(cudaEventCreate(&begin), "multi event begin");
         check_cuda(cudaEventCreate(&end), "multi event end");
         check_cuda(cudaEventRecord(begin), "record multi begin");
-        prefix_filter_multi_kernel<<<blocks, opt.threads>>>(opt.start_index, opt.max_states, d_survivors, d_count);
+        if (opt.behavior_direct) {
+            prefix_filter_behavior_multi_kernel<<<blocks, opt.threads>>>(opt.start_index, opt.max_states, d_survivors, d_count);
+        } else {
+            prefix_filter_multi_kernel<<<blocks, opt.threads>>>(opt.start_index, opt.max_states, d_survivors, d_count);
+        }
         check_cuda(cudaGetLastError(), "multi kernel launch");
         check_cuda(cudaEventRecord(end), "record multi end");
         check_cuda(cudaEventSynchronize(end), "multi event sync");
@@ -755,7 +898,7 @@ int main(int argc, char** argv) {
             const Candidate& cand = opt.candidates[ci];
             std::string cipher = clean_letters(cand.ciphertext);
             uint32_t count = counts[ci];
-            if (!opt.survivor_dir.empty()) {
+            if (!opt.count_only && !opt.survivor_dir.empty()) {
                 std::ostringstream path;
                 path << opt.survivor_dir << "\\candidate_" << cand.id << "_survivors.bin";
                 std::vector<uint64_t> survivors(count);
@@ -801,7 +944,11 @@ int main(int argc, char** argv) {
         check_cuda(cudaEventCreate(&begin), "event begin");
         check_cuda(cudaEventCreate(&end), "event end");
         check_cuda(cudaEventRecord(begin), "record begin");
-        prefix_filter_kernel<<<blocks, opt.threads>>>(opt.start_index, opt.max_states, d_survivors, d_count);
+        if (opt.behavior_direct) {
+            prefix_filter_behavior_kernel<<<blocks, opt.threads>>>(opt.start_index, opt.max_states, d_survivors, d_count);
+        } else {
+            prefix_filter_kernel<<<blocks, opt.threads>>>(opt.start_index, opt.max_states, d_survivors, d_count);
+        }
         check_cuda(cudaGetLastError(), "kernel launch");
         check_cuda(cudaEventRecord(end), "record end");
         check_cuda(cudaEventSynchronize(end), "event sync");
@@ -812,7 +959,7 @@ int main(int argc, char** argv) {
         check_cuda(cudaMemcpy(&count, d_count, sizeof(uint32_t), cudaMemcpyDeviceToHost), "copy count");
         double seconds = ms / 1000.0;
 
-        if (!opt.survivor_dir.empty()) {
+        if (!opt.count_only && !opt.survivor_dir.empty()) {
             std::ostringstream path;
             path << opt.survivor_dir << "\\candidate_" << cand.id << "_survivors.bin";
             std::vector<uint64_t> survivors(count);
@@ -852,7 +999,9 @@ int main(int argc, char** argv) {
          << (wall_seconds > 0 ? aggregate / wall_seconds : 0.0) << "\n";
     json << "}\n";
 
-    cudaFree(d_survivors);
+    if (d_survivors != nullptr) {
+        cudaFree(d_survivors);
+    }
     cudaFree(d_count);
     return 0;
 }

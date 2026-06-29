@@ -143,7 +143,7 @@ The current recommended exact path is `run_behavior_direct_all_candidates.ps1`.
 
 The behavior-direct method is intended to be exact, not sampled.
 
-ELI5 version: many different ring/start settings cause the Enigma rotors to behave identically for this 17-letter crib. Instead of testing all 104 literal settings in such a group one by one, the code tests one behavior class and then expands any hit back to the represented literal settings. It should not discard a possible solution if the behavior-class grouping is correct.
+ELI5 version: many different ring/start settings cause the Enigma rotors to behave identically for this 17-letter crib. Under the confirmed visible-notch turnover convention, each direct behavior class represents 26 literal settings. Instead of testing all 26 literal settings in such a group one by one, the code tests one behavior class and then expands any hit back to the represented literal settings. It should not discard a possible solution if the behavior-class grouping is correct.
 
 Known correctness checks already performed:
 

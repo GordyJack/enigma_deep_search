@@ -11,11 +11,15 @@
 *.out.txt
 *.err.txt
 *.bin
+*.tsv
 
 # Run output directories
 behavior_direct_*/
 gpu_hybrid_*/
+gpu_behavior_*/
+gpu_known_hit_*/
 gpu_survivors_*/
+gpu_viable_by_gordon/
 hybrid_full_*/
 outputs_*/
 

@@ -49,10 +49,9 @@ __device__ __forceinline__ void decode_triplet(uint32_t index, int out[3]) {
 }
 
 __device__ __forceinline__ void step_positions(const uint8_t rotors[3], const int rings[3], int pos[3]) {
-    int middle_turnover = (static_cast<int>(d_notches[rotors[1]]) - rings[1] + 26) % 26;
-    int right_turnover = (static_cast<int>(d_notches[rotors[2]]) - rings[2] + 26) % 26;
-    bool middle_at_notch = pos[1] == middle_turnover;
-    bool right_at_notch = pos[2] == right_turnover;
+    (void)rings;
+    bool middle_at_notch = pos[1] == static_cast<int>(d_notches[rotors[1]]);
+    bool right_at_notch = pos[2] == static_cast<int>(d_notches[rotors[2]]);
     if (middle_at_notch) {
         pos[0] = (pos[0] + 1) % 26;
     }
@@ -220,4 +219,3 @@ int main(int argc, char** argv) {
     cudaEventDestroy(end);
     return 0;
 }
-
