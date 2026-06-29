@@ -1,0 +1,25 @@
+# Build outputs
+*.exe
+*.obj
+*.pdb
+*.ilk
+*.exp
+*.lib
+
+# Generated search outputs
+*.json
+*.out.txt
+*.err.txt
+*.bin
+
+# Run output directories
+behavior_direct_*/
+gpu_hybrid_*/
+gpu_survivors_*/
+hybrid_full_*/
+outputs_*/
+
+# Keep source, scripts, and docs in the repo.
+!.gitignore
+!README.md
+!CHATGPT_NEXT_STEPS_HANDOFF.md
