@@ -421,6 +421,7 @@ __device__ bool behavior_class_passes_prefix(uint64_t class_index) {
 __global__ void prefix_filter_kernel(uint64_t start_index,
                                      uint64_t states,
                                      uint64_t* survivors,
+                                     uint64_t survivor_capacity,
                                      uint32_t* survivor_count) {
     uint64_t tid = static_cast<uint64_t>(blockIdx.x) * blockDim.x + threadIdx.x;
     uint64_t stride = static_cast<uint64_t>(gridDim.x) * blockDim.x;
@@ -428,7 +429,7 @@ __global__ void prefix_filter_kernel(uint64_t start_index,
         uint64_t absolute = start_index + item;
         if (state_passes_prefix(absolute)) {
             uint32_t slot = atomicAdd(survivor_count, 1u);
-            if (survivors != nullptr) {
+            if (survivors != nullptr && static_cast<uint64_t>(slot) < survivor_capacity) {
                 survivors[slot] = absolute;
             }
         }
@@ -438,6 +439,7 @@ __global__ void prefix_filter_kernel(uint64_t start_index,
 __global__ void prefix_filter_behavior_kernel(uint64_t start_index,
                                              uint64_t classes,
                                              uint64_t* survivors,
+                                             uint64_t survivor_capacity,
                                              uint32_t* survivor_count) {
     uint64_t tid = static_cast<uint64_t>(blockIdx.x) * blockDim.x + threadIdx.x;
     uint64_t stride = static_cast<uint64_t>(gridDim.x) * blockDim.x;
@@ -445,7 +447,7 @@ __global__ void prefix_filter_behavior_kernel(uint64_t start_index,
         uint64_t absolute = start_index + item;
         if (behavior_class_passes_prefix(absolute)) {
             uint32_t slot = atomicAdd(survivor_count, 1u);
-            if (survivors != nullptr) {
+            if (survivors != nullptr && static_cast<uint64_t>(slot) < survivor_capacity) {
                 survivors[slot] = absolute;
             }
         }
@@ -455,6 +457,7 @@ __global__ void prefix_filter_behavior_kernel(uint64_t start_index,
 __global__ void prefix_filter_multi_kernel(uint64_t start_index,
                                            uint64_t states,
                                            uint64_t* survivors,
+                                           uint64_t survivor_capacity,
                                            uint32_t* survivor_counts) {
     uint64_t tid = static_cast<uint64_t>(blockIdx.x) * blockDim.x + threadIdx.x;
     uint64_t stride = static_cast<uint64_t>(gridDim.x) * blockDim.x;
@@ -467,8 +470,8 @@ __global__ void prefix_filter_multi_kernel(uint64_t start_index,
             for (int i = 0; i < ALPHA; ++i) mapping[i] = UNKNOWN;
             if (dfs_prefix_candidate(ci, mapping, 0, maps, 0)) {
                 uint32_t slot = atomicAdd(&survivor_counts[ci], 1u);
-                if (survivors != nullptr) {
-                    survivors[static_cast<uint64_t>(ci) * states + slot] = absolute;
+                if (survivors != nullptr && static_cast<uint64_t>(slot) < survivor_capacity) {
+                    survivors[static_cast<uint64_t>(ci) * survivor_capacity + slot] = absolute;
                 }
             }
         }
@@ -478,6 +481,7 @@ __global__ void prefix_filter_multi_kernel(uint64_t start_index,
 __global__ void prefix_filter_behavior_multi_kernel(uint64_t start_index,
                                                     uint64_t classes,
                                                     uint64_t* survivors,
+                                                    uint64_t survivor_capacity,
                                                     uint32_t* survivor_counts) {
     uint64_t tid = static_cast<uint64_t>(blockIdx.x) * blockDim.x + threadIdx.x;
     uint64_t stride = static_cast<uint64_t>(gridDim.x) * blockDim.x;
@@ -490,8 +494,8 @@ __global__ void prefix_filter_behavior_multi_kernel(uint64_t start_index,
             for (int i = 0; i < ALPHA; ++i) mapping[i] = UNKNOWN;
             if (dfs_prefix_candidate(ci, mapping, 0, maps, 0)) {
                 uint32_t slot = atomicAdd(&survivor_counts[ci], 1u);
-                if (survivors != nullptr) {
-                    survivors[static_cast<uint64_t>(ci) * classes + slot] = absolute;
+                if (survivors != nullptr && static_cast<uint64_t>(slot) < survivor_capacity) {
+                    survivors[static_cast<uint64_t>(ci) * survivor_capacity + slot] = absolute;
                 }
             }
         }
@@ -515,6 +519,7 @@ struct Options {
     int max_pairs = 10;
     int blocks = 0;
     int threads = 128;
+    uint64_t survivor_cap = 0;
     std::string output = "gpu_prefix_filter_results.json";
     std::string survivor_dir;
 };
@@ -579,10 +584,11 @@ static Options parse_args(int argc, char** argv) {
         else if (arg == "--max-pairs") opt.max_pairs = static_cast<int>(parse_u64(need("--max-pairs")));
         else if (arg == "--blocks") opt.blocks = static_cast<int>(parse_u64(need("--blocks")));
         else if (arg == "--threads") opt.threads = static_cast<int>(parse_u64(need("--threads")));
+        else if (arg == "--survivor-cap") opt.survivor_cap = parse_u64(need("--survivor-cap"));
         else if (arg == "--output") opt.output = need("--output");
         else if (arg == "--survivor-dir") opt.survivor_dir = need("--survivor-dir");
         else if (arg == "--help") {
-            std::puts("Usage: enigma_cuda_prefix_filter [--ciphertext TEXT | --candidate-file PATH | --default-candidates] --max-states N [--count-only]");
+            std::puts("Usage: enigma_cuda_prefix_filter [--ciphertext TEXT | --candidate-file PATH | --default-candidates] --max-states N [--count-only] [--survivor-cap N]");
             std::exit(0);
         } else {
             std::fprintf(stderr, "unknown arg: %s\n", arg.c_str());
@@ -846,8 +852,13 @@ int main(int argc, char** argv) {
     uint64_t* d_survivors = nullptr;
     uint32_t* d_count = nullptr;
     uint64_t survivor_multiplier = opt.combined_candidates ? static_cast<uint64_t>(opt.candidates.size()) : 1ULL;
+    uint64_t survivor_capacity = opt.survivor_cap == 0 ? opt.max_states : opt.survivor_cap;
     if (!opt.count_only) {
-        check_cuda(cudaMalloc(&d_survivors, sizeof(uint64_t) * opt.max_states * survivor_multiplier), "malloc survivors");
+        if (survivor_capacity == 0) {
+            std::fprintf(stderr, "survivor capacity must be greater than zero\n");
+            return 2;
+        }
+        check_cuda(cudaMalloc(&d_survivors, sizeof(uint64_t) * survivor_capacity * survivor_multiplier), "malloc survivors");
     }
     check_cuda(cudaMalloc(&d_count, sizeof(uint32_t) * survivor_multiplier), "malloc count");
 
@@ -865,6 +876,7 @@ int main(int argc, char** argv) {
     json << "  \"behavior_direct\": " << (opt.behavior_direct ? "true" : "false") << ",\n";
     json << "  \"count_only\": " << (opt.count_only ? "true" : "false") << ",\n";
     json << "  \"prefix_len\": " << opt.prefix_len << ",\n";
+    json << "  \"survivor_cap\": " << survivor_capacity << ",\n";
     json << "  \"combined_candidates\": " << (opt.combined_candidates ? "true" : "false") << ",\n";
     json << "  \"blocks\": " << blocks << ",\n";
     json << "  \"threads_per_block\": " << opt.threads << ",\n";
@@ -880,9 +892,9 @@ int main(int argc, char** argv) {
         check_cuda(cudaEventCreate(&end), "multi event end");
         check_cuda(cudaEventRecord(begin), "record multi begin");
         if (opt.behavior_direct) {
-            prefix_filter_behavior_multi_kernel<<<blocks, opt.threads>>>(opt.start_index, opt.max_states, d_survivors, d_count);
+            prefix_filter_behavior_multi_kernel<<<blocks, opt.threads>>>(opt.start_index, opt.max_states, d_survivors, survivor_capacity, d_count);
         } else {
-            prefix_filter_multi_kernel<<<blocks, opt.threads>>>(opt.start_index, opt.max_states, d_survivors, d_count);
+            prefix_filter_multi_kernel<<<blocks, opt.threads>>>(opt.start_index, opt.max_states, d_survivors, survivor_capacity, d_count);
         }
         check_cuda(cudaGetLastError(), "multi kernel launch");
         check_cuda(cudaEventRecord(end), "record multi end");
@@ -898,23 +910,25 @@ int main(int argc, char** argv) {
             const Candidate& cand = opt.candidates[ci];
             std::string cipher = clean_letters(cand.ciphertext);
             uint32_t count = counts[ci];
+            uint64_t stored_count = count;
+            if (stored_count > survivor_capacity) stored_count = survivor_capacity;
             if (!opt.count_only && !opt.survivor_dir.empty()) {
                 std::ostringstream path;
                 path << opt.survivor_dir << "\\candidate_" << cand.id << "_survivors.bin";
-                std::vector<uint64_t> survivors(count);
-                if (count > 0) {
+                std::vector<uint64_t> survivors(static_cast<size_t>(stored_count));
+                if (stored_count > 0) {
                     check_cuda(
                         cudaMemcpy(
                             survivors.data(),
-                            d_survivors + static_cast<uint64_t>(ci) * opt.max_states,
-                            sizeof(uint64_t) * count,
+                            d_survivors + static_cast<uint64_t>(ci) * survivor_capacity,
+                            sizeof(uint64_t) * stored_count,
                             cudaMemcpyDeviceToHost),
                         "copy multi survivors");
                 }
                 std::ofstream out(path.str(), std::ios::binary);
-                uint64_t count64 = count;
+                uint64_t count64 = stored_count;
                 out.write(reinterpret_cast<const char*>(&count64), sizeof(count64));
-                if (count > 0) out.write(reinterpret_cast<const char*>(survivors.data()), sizeof(uint64_t) * count);
+                if (stored_count > 0) out.write(reinterpret_cast<const char*>(survivors.data()), sizeof(uint64_t) * stored_count);
             }
 
             std::printf("candidate_id=%d cipher=%s survivors=%u elapsed=%.6f states_per_second=%.3f\n",
@@ -924,6 +938,8 @@ int main(int argc, char** argv) {
                  << ", \"label\": \"" << cand.label
                  << "\", \"ciphertext\": \"" << cipher
                  << "\", \"survivors\": " << count
+                 << ", \"survivors_stored\": " << stored_count
+                 << ", \"survivor_overflow\": " << (stored_count < count ? "true" : "false")
                  << ", \"elapsed_seconds\": " << seconds
                  << ", \"states_per_second\": " << (seconds > 0 ? opt.max_states / seconds : 0.0)
                  << "}";
@@ -945,9 +961,9 @@ int main(int argc, char** argv) {
         check_cuda(cudaEventCreate(&end), "event end");
         check_cuda(cudaEventRecord(begin), "record begin");
         if (opt.behavior_direct) {
-            prefix_filter_behavior_kernel<<<blocks, opt.threads>>>(opt.start_index, opt.max_states, d_survivors, d_count);
+            prefix_filter_behavior_kernel<<<blocks, opt.threads>>>(opt.start_index, opt.max_states, d_survivors, survivor_capacity, d_count);
         } else {
-            prefix_filter_kernel<<<blocks, opt.threads>>>(opt.start_index, opt.max_states, d_survivors, d_count);
+            prefix_filter_kernel<<<blocks, opt.threads>>>(opt.start_index, opt.max_states, d_survivors, survivor_capacity, d_count);
         }
         check_cuda(cudaGetLastError(), "kernel launch");
         check_cuda(cudaEventRecord(end), "record end");
@@ -958,18 +974,20 @@ int main(int argc, char** argv) {
         uint32_t count = 0;
         check_cuda(cudaMemcpy(&count, d_count, sizeof(uint32_t), cudaMemcpyDeviceToHost), "copy count");
         double seconds = ms / 1000.0;
+        uint64_t stored_count = count;
+        if (stored_count > survivor_capacity) stored_count = survivor_capacity;
 
         if (!opt.count_only && !opt.survivor_dir.empty()) {
             std::ostringstream path;
             path << opt.survivor_dir << "\\candidate_" << cand.id << "_survivors.bin";
-            std::vector<uint64_t> survivors(count);
-            if (count > 0) {
-                check_cuda(cudaMemcpy(survivors.data(), d_survivors, sizeof(uint64_t) * count, cudaMemcpyDeviceToHost), "copy survivors");
+            std::vector<uint64_t> survivors(static_cast<size_t>(stored_count));
+            if (stored_count > 0) {
+                check_cuda(cudaMemcpy(survivors.data(), d_survivors, sizeof(uint64_t) * stored_count, cudaMemcpyDeviceToHost), "copy survivors");
             }
             std::ofstream out(path.str(), std::ios::binary);
-            uint64_t count64 = count;
+            uint64_t count64 = stored_count;
             out.write(reinterpret_cast<const char*>(&count64), sizeof(count64));
-            if (count > 0) out.write(reinterpret_cast<const char*>(survivors.data()), sizeof(uint64_t) * count);
+            if (stored_count > 0) out.write(reinterpret_cast<const char*>(survivors.data()), sizeof(uint64_t) * stored_count);
         }
 
         std::printf("candidate_id=%d cipher=%s survivors=%u elapsed=%.6f states_per_second=%.3f\n",
@@ -979,6 +997,8 @@ int main(int argc, char** argv) {
              << ", \"label\": \"" << cand.label
              << "\", \"ciphertext\": \"" << cipher
              << "\", \"survivors\": " << count
+             << ", \"survivors_stored\": " << stored_count
+             << ", \"survivor_overflow\": " << (stored_count < count ? "true" : "false")
              << ", \"elapsed_seconds\": " << seconds
              << ", \"states_per_second\": " << (seconds > 0 ? opt.max_states / seconds : 0.0)
              << "}";

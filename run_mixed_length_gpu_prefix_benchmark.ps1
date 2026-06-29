@@ -12,9 +12,12 @@ param(
     [string]$SummaryPath = ".\mixed_length_gpu_prefix_benchmark_summary.json",
     [string]$GeneratedTargetsPath = ".\mixed_generated_benchmark.json",
     [string]$ValidationReportPath = ".\mixed_length_validation_latest.json",
+    [UInt64]$GpuSurvivorCap = 1000000,
+    [int]$ProgressSeconds = 60,
     [switch]$SkipValidation,
     [switch]$SkipGenerate,
-    [switch]$SkipCpuVerify
+    [switch]$SkipCpuVerify,
+    [switch]$DirectEmitSurvivors
 )
 
 $ErrorActionPreference = "Stop"
@@ -66,12 +69,49 @@ function Invoke-CheckedProcess {
         [Parameter(Mandatory=$true)] [string]$WorkingDirectory,
         [Parameter(Mandatory=$true)] [string]$StdoutPath,
         [Parameter(Mandatory=$true)] [string]$StderrPath,
-        [Parameter(Mandatory=$true)] [string]$Label
+        [Parameter(Mandatory=$true)] [string]$Label,
+        [string]$ResultJsonPath = "",
+        [int]$ExpectedCandidateRecords = 0
     )
 
     $watch = [Diagnostics.Stopwatch]::StartNew()
     $proc = Start-Process -FilePath $FilePath -ArgumentList $ArgumentList -WorkingDirectory $WorkingDirectory -RedirectStandardOutput $StdoutPath -RedirectStandardError $StderrPath -WindowStyle Hidden -PassThru
-    $proc.WaitForExit()
+    $intervalMs = [Math]::Max(5, $ProgressSeconds) * 1000
+    while (-not $proc.WaitForExit($intervalMs)) {
+        $completedRecords = $null
+        $survivorRecords = $null
+        $survivorTotal = $null
+        $overflowRecords = $null
+        if ($ResultJsonPath -and (Test-Path -LiteralPath $ResultJsonPath)) {
+            try {
+                $txt = Get-Content -LiteralPath $ResultJsonPath -Raw
+                $completedRecords = ([regex]::Matches($txt, '"id"\s*:')).Count
+                $survivorMatches = [regex]::Matches($txt, '"survivors"\s*:\s*(\d+)')
+                $survivorRecords = $survivorMatches.Count
+                $survivorTotal = [UInt64]0
+                foreach ($m in $survivorMatches) {
+                    $survivorTotal += [UInt64]$m.Groups[1].Value
+                }
+                $overflowRecords = ([regex]::Matches($txt, '"survivor_overflow"\s*:\s*true')).Count
+            } catch {
+                $completedRecords = $null
+            }
+        }
+        $progressText = if ($null -ne $completedRecords -and $ExpectedCandidateRecords -gt 0) {
+            "records $completedRecords/$ExpectedCandidateRecords, survivor_records $survivorRecords, survivor_total $survivorTotal, overflows $overflowRecords"
+        } elseif ($null -ne $completedRecords) {
+            "records $completedRecords, survivor_records $survivorRecords, survivor_total $survivorTotal, overflows $overflowRecords"
+        } else {
+            "no partial result JSON yet"
+        }
+        $gpuText = ""
+        try {
+            $gpuText = (nvidia-smi --query-gpu=utilization.gpu,memory.used,temperature.gpu,power.draw --format=csv,noheader,nounits) -join " | "
+        } catch {
+            $gpuText = "gpu unavailable"
+        }
+        Write-Host ("[{0}] {1} running {2:n1}s; {3}; gpu {4}" -f (Get-Date).ToString("s"), $Label, $watch.Elapsed.TotalSeconds, $progressText, $gpuText)
+    }
     $proc.Refresh()
     $watch.Stop()
     if ($null -ne $proc.ExitCode -and $proc.ExitCode -ne 0) {
@@ -232,10 +272,14 @@ foreach ($length in $lengthOrder) {
             "--start-index", "$StartIndex",
             "--max-states", "$classesPerTarget",
             "--prefix-len", "$length",
-            "--count-only",
             "--output", $gpuOutput
         )
-        $gpuWall = Invoke-CheckedProcess -FilePath $gpuExe -ArgumentList $gpuArgs -WorkingDirectory $repoDir -StdoutPath $gpuStdout -StderrPath $gpuStderr -Label "GPU length $length Gordon rank $gordonRank"
+        if ($DirectEmitSurvivors) {
+            $gpuArgs += @("--survivor-dir", $groupDir, "--survivor-cap", "$GpuSurvivorCap")
+        } else {
+            $gpuArgs += "--count-only"
+        }
+        $gpuWall = Invoke-CheckedProcess -FilePath $gpuExe -ArgumentList $gpuArgs -WorkingDirectory $repoDir -StdoutPath $gpuStdout -StderrPath $gpuStderr -Label "GPU length $length Gordon rank $gordonRank" -ResultJsonPath $gpuOutput -ExpectedCandidateRecords $groupTargets.Count
         $lengthGpuWall += $gpuWall
         $gpu = Read-JsonFile -Path $gpuOutput
         $candidateResults = @($gpu.candidates)
@@ -258,37 +302,60 @@ foreach ($length in $lengthOrder) {
             $cpuResultCount = 0
             $replayGpuOutput = $null
             $replayGpuWall = 0.0
+            $survivorOverflow = $false
+            if ($null -ne $candidate.survivor_overflow) {
+                $survivorOverflow = [bool]$candidate.survivor_overflow
+            }
+            $survivorsStored = $survivors
+            if ($null -ne $candidate.survivors_stored) {
+                $survivorsStored = [UInt64]$candidate.survivors_stored
+            }
 
             if ($survivors -gt 0 -and -not $SkipCpuVerify) {
-                $replayDir = Join-Path $groupDir ("replay_candidate_{0}" -f $candidate.id)
-                New-Item -ItemType Directory -Force -Path $replayDir | Out-Null
-                $replayCandidateFile = Join-Path $replayDir "target.tsv"
-                ("{0}`tlen_{1}_reader_{2:D4}_gordon_{3:D4}`t{4}" -f $target.id, $target.length, $target.reader_rank, $target.gordon_rank, $target.reader_ciphertext) |
-                    Set-Content -LiteralPath $replayCandidateFile -Encoding ASCII
+                if ($survivorOverflow) {
+                    throw "GPU survivor cap overflow for target $($target.id): survivors=$survivors stored=$survivorsStored cap=$GpuSurvivorCap"
+                }
+                if ($DirectEmitSurvivors) {
+                    $survivorPath = Join-Path $groupDir ("candidate_{0}_survivors.bin" -f $candidate.id)
+                    $verifyDir = Join-Path $groupDir ("verify_candidate_{0}" -f $candidate.id)
+                    New-Item -ItemType Directory -Force -Path $verifyDir | Out-Null
+                } else {
+                    $verifyDir = Join-Path $groupDir ("replay_candidate_{0}" -f $candidate.id)
+                    New-Item -ItemType Directory -Force -Path $verifyDir | Out-Null
+                    $replayCandidateFile = Join-Path $verifyDir "target.tsv"
+                    ("{0}`tlen_{1}_reader_{2:D4}_gordon_{3:D4}`t{4}" -f $target.id, $target.length, $target.reader_rank, $target.gordon_rank, $target.reader_ciphertext) |
+                        Set-Content -LiteralPath $replayCandidateFile -Encoding ASCII
 
-                $replayGpuOutput = Join-Path $replayDir "gpu_replay_results.json"
-                $replayGpuStdout = Join-Path $replayDir "gpu_replay.out.txt"
-                $replayGpuStderr = Join-Path $replayDir "gpu_replay.err.txt"
-                $replayArgs = @(
-                    "--tier", $Tier,
-                    "--plaintext", $target.gordon_plaintext,
-                    "--candidate-file", $replayCandidateFile,
-                    "--behavior-direct",
-                    "--start-index", "$StartIndex",
-                    "--max-states", "$classesPerTarget",
-                    "--prefix-len", "$length",
-                    "--survivor-dir", $replayDir,
-                    "--output", $replayGpuOutput
-                )
-                $replayGpuWall = Invoke-CheckedProcess -FilePath $gpuExe -ArgumentList $replayArgs -WorkingDirectory $repoDir -StdoutPath $replayGpuStdout -StderrPath $replayGpuStderr -Label "GPU replay target $($target.id)"
-                $survivorPath = Join-Path $replayDir ("candidate_{0}_survivors.bin" -f $candidate.id)
+                    $replayGpuOutput = Join-Path $verifyDir "gpu_replay_results.json"
+                    $replayGpuStdout = Join-Path $verifyDir "gpu_replay.out.txt"
+                    $replayGpuStderr = Join-Path $verifyDir "gpu_replay.err.txt"
+                    $replayArgs = @(
+                        "--tier", $Tier,
+                        "--plaintext", $target.gordon_plaintext,
+                        "--candidate-file", $replayCandidateFile,
+                        "--behavior-direct",
+                        "--start-index", "$StartIndex",
+                        "--max-states", "$classesPerTarget",
+                        "--prefix-len", "$length",
+                        "--survivor-dir", $verifyDir,
+                        "--survivor-cap", "$GpuSurvivorCap",
+                        "--output", $replayGpuOutput
+                    )
+                    $replayGpuWall = Invoke-CheckedProcess -FilePath $gpuExe -ArgumentList $replayArgs -WorkingDirectory $repoDir -StdoutPath $replayGpuStdout -StderrPath $replayGpuStderr -Label "GPU replay target $($target.id)" -ResultJsonPath $replayGpuOutput -ExpectedCandidateRecords 1
+                    $replay = Read-JsonFile -Path $replayGpuOutput
+                    $replayCandidate = @($replay.candidates)[0]
+                    if ([bool]$replayCandidate.survivor_overflow) {
+                        throw "GPU replay survivor cap overflow for target $($target.id): survivors=$($replayCandidate.survivors) cap=$GpuSurvivorCap"
+                    }
+                    $survivorPath = Join-Path $verifyDir ("candidate_{0}_survivors.bin" -f $candidate.id)
+                }
                 if (-not (Test-Path -LiteralPath $survivorPath)) {
                     throw "expected survivor file does not exist: $survivorPath"
                 }
 
-                $cpuOutput = Join-Path $replayDir "cpu_verify.json"
-                $cpuStdout = Join-Path $replayDir "cpu_verify.out.txt"
-                $cpuStderr = Join-Path $replayDir "cpu_verify.err.txt"
+                $cpuOutput = Join-Path $verifyDir "cpu_verify.json"
+                $cpuStdout = Join-Path $verifyDir "cpu_verify.out.txt"
+                $cpuStderr = Join-Path $verifyDir "cpu_verify.err.txt"
                 $cpuArgs = @(
                     "--tier", $Tier,
                     "--plaintext", $target.gordon_plaintext,
@@ -300,7 +367,7 @@ foreach ($length in $lengthOrder) {
                     "--skip-initial-tests",
                     "--output", $cpuOutput
                 )
-                $cpuWall = Invoke-CheckedProcess -FilePath $cpuExe -ArgumentList $cpuArgs -WorkingDirectory $repoDir -StdoutPath $cpuStdout -StderrPath $cpuStderr -Label "CPU verification target $($target.id)"
+                $cpuWall = Invoke-CheckedProcess -FilePath $cpuExe -ArgumentList $cpuArgs -WorkingDirectory $repoDir -StdoutPath $cpuStdout -StderrPath $cpuStderr -Label "CPU verification target $($target.id)" -ResultJsonPath $cpuOutput -ExpectedCandidateRecords 1
                 $lengthCpuWall += $cpuWall
                 $groupCpuWall += $cpuWall
                 $cpu = Read-JsonFile -Path $cpuOutput
@@ -325,6 +392,8 @@ foreach ($length in $lengthOrder) {
                 gordon_plaintext = $target.gordon_plaintext
                 behavior_classes_checked = $classesPerTarget
                 gpu_survivors = $survivors
+                gpu_survivors_stored = $survivorsStored
+                gpu_survivor_overflow = $survivorOverflow
                 gpu_kernel_seconds = [double]$candidate.elapsed_seconds
                 gpu_classes_per_second = [double]$candidate.states_per_second
                 cpu_verify_wall_seconds = $cpuWall
@@ -350,6 +419,8 @@ foreach ($length in $lengthOrder) {
             gpu_json_wall_seconds = [double]$gpu.wall_elapsed_seconds
             gpu_aggregate_checks_per_second_wall = $(if ($gpuWall -gt 0) { $groupChecks / $gpuWall } else { 0 })
             gpu_survivors = $groupSurvivors
+            gpu_direct_emit_survivors = [bool]$DirectEmitSurvivors
+            gpu_survivor_cap = $GpuSurvivorCap
             cpu_verify_wall_seconds = $groupCpuWall
             cpu_verified_result_count = $groupVerified
             candidate_file = $candidateFile
@@ -442,6 +513,9 @@ $summaryObject = [pscustomobject]@{
     full_behavior_classes_per_target = $fullClassesPerTarget
     cpu_threads = $CpuThreads
     cpu_verify_skipped = [bool]$SkipCpuVerify
+    gpu_direct_emit_survivors = [bool]$DirectEmitSurvivors
+    gpu_survivor_cap = $GpuSurvivorCap
+    progress_seconds = $ProgressSeconds
     total_gpu_behavior_target_checks = $totalChecks
     total_gpu_wall_seconds = $totalGpuWall
     total_cpu_verify_wall_seconds = $totalCpuWall
