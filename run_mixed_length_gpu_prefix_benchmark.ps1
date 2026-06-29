@@ -1,8 +1,8 @@
 param(
     [string]$GpuExePath = ".\enigma_cuda_prefix_filter.exe",
     [string]$CpuExePath = ".\enigma_m3_search_fast.exe",
-    [string]$ReaderPlaintextsPath = ".\mixed_benchmark_reader_plaintexts.txt",
-    [string]$GordonPlaintextsPath = ".\mixed_benchmark_gordon_plaintexts.txt",
+    [string]$ReaderPlaintextsPath = ".\story_clue_reader_plaintexts.txt",
+    [string]$GordonPlaintextsPath = ".\story_clue_gordon_plaintexts.txt",
     [string]$Tier = "2",
     [UInt64]$StartIndex = 0,
     [UInt64]$MaxTotalClassesPerLength = 10000000,
