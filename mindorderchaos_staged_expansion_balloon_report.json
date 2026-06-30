@@ -1,0 +1,100 @@
+﻿{
+    "mode":  "mindorderchaos_staged_expansion_partial_balloon_report",
+    "generated_at":  "2026-06-29T22:02:47.9310619-05:00",
+    "status":  "stopped_incomplete_ballooned",
+    "stop_reason":  "First CPU-expanded target produced 62712 verified literal Gordon settings, far above the 20-setting per-reader threshold.",
+    "target_gordon_match_plaintext":  "MINDORDERCHAOS",
+    "display_gordon_text":  "MIND+ORDER+CHAOS=REALITY",
+    "full_gordon_plaintext":  "MINDORDERCHAOSREALITY",
+    "reader_settings_locked":  {
+                                   "reflector":  "B",
+                                   "rotors_left_to_right":  "III I IV",
+                                   "start_window":  "GJM",
+                                   "rings":  "MMM",
+                                   "tested_reader_plugboard_option":  "PE AF GR"
+                               },
+    "skipped_in_option_1":  [
+                                {
+                                    "reader_plaintext":  "DEATHWASERASED",
+                                    "reader_active_pairs":  "PE AF GR",
+                                    "reason":  "same_position_impossible_for_MINDORDERCHAOS"
+                                }
+                            ],
+    "gpu_option_1":  {
+                         "gpu":  "NVIDIA GeForce RTX 4090",
+                         "behavior_classes_per_target":  1425765120,
+                         "target_count":  5,
+                         "wall_elapsed_seconds":  34.263,
+                         "aggregate_candidate_state_checks":  7128825600,
+                         "aggregate_candidate_state_checks_per_second_wall":  208062000,
+                         "candidates":  [
+                                            {
+                                                "target_id":  10,
+                                                "reader_plaintext":  "MOMENTHIDDEATH",
+                                                "reader_active_pairs":  "PE AF GR",
+                                                "reader_ciphertext":  "LHAUPWJTGOPLNJ",
+                                                "gpu_survivors":  2260,
+                                                "gpu_elapsed_seconds":  7.22208,
+                                                "gpu_states_per_second":  197418000,
+                                                "cpu_verified_literal_gordon_settings":  62712,
+                                                "cpu_verified":  true
+                                            },
+                                            {
+                                                "target_id":  50,
+                                                "reader_plaintext":  "THEDAYHIDDEATH",
+                                                "reader_active_pairs":  "PE AF GR",
+                                                "reader_ciphertext":  "BODZQMJTGOPLNJ",
+                                                "gpu_survivors":  3887,
+                                                "gpu_elapsed_seconds":  6.80766,
+                                                "gpu_states_per_second":  209435000,
+                                                "cpu_verified_literal_gordon_settings":  null,
+                                                "cpu_verified":  false
+                                            },
+                                            {
+                                                "target_id":  90,
+                                                "reader_plaintext":  "SECRETLOOPDEAD",
+                                                "reader_active_pairs":  "PE AF GR",
+                                                "reader_ciphertext":  "OPHQZWTYFIFKIR",
+                                                "gpu_survivors":  3394,
+                                                "gpu_elapsed_seconds":  7.4349,
+                                                "gpu_states_per_second":  191767000,
+                                                "cpu_verified_literal_gordon_settings":  null,
+                                                "cpu_verified":  false
+                                            },
+                                            {
+                                                "target_id":  170,
+                                                "reader_plaintext":  "DEATHREWRITTEN",
+                                                "reader_active_pairs":  "PE AF GR",
+                                                "reader_ciphertext":  "WPMBGPXHQPJGFC",
+                                                "gpu_survivors":  3274,
+                                                "gpu_elapsed_seconds":  7.25276,
+                                                "gpu_states_per_second":  196583000,
+                                                "cpu_verified_literal_gordon_settings":  null,
+                                                "cpu_verified":  false
+                                            },
+                                            {
+                                                "target_id":  210,
+                                                "reader_plaintext":  "ONEYEARINWEEKS",
+                                                "reader_active_pairs":  "PE AF GR",
+                                                "reader_ciphertext":  "SCDCZCFTXSPKZK",
+                                                "gpu_survivors":  1660,
+                                                "gpu_elapsed_seconds":  5.54227,
+                                                "gpu_states_per_second":  257253000,
+                                                "cpu_verified_literal_gordon_settings":  null,
+                                                "cpu_verified":  false
+                                            }
+                                        ]
+                     },
+    "cpu_expanded_first_target":  {
+                                      "reader_plaintext":  "MOMENTHIDDEATH",
+                                      "reader_active_pairs":  "PE AF GR",
+                                      "reader_ciphertext":  "LHAUPWJTGOPLNJ",
+                                      "target_id":  10,
+                                      "behavior_class_survivors":  2260,
+                                      "cpu_verified_literal_gordon_settings":  62712,
+                                      "raw_cpu_output_local_path":  "C:\\Users\\xkell\\Documents\\Codex\\enigma_search\\mindorderchaos_staged_expansion\\option_01_PE_AF_GR\\verify_candidate_10\\cpu_verify.json",
+                                      "raw_cpu_output_file_bytes":  24819039,
+                                      "note":  "Raw CPU JSON contains every verified literal setting for this one target, but this compact report is the repo-friendly result artifact."
+                                  },
+    "recommendation":  "Do not continue uncapped staged expansion. Use capped expansion or add a stricter ranking/filter layer before materializing literal settings."
+}
