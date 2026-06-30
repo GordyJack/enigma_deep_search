@@ -5,13 +5,21 @@ plugboard solved as constraints instead of brute-forced.
 
 The recommended exact path is:
 
+- `run_phrase_pair_first.ps1`: fastest current runner when the goal is to find
+  which reader/Gordon phrase pairs are possible. It batches all generated reader
+  variants for one phrase pair on the GPU, verifies any survivors on CPU, then
+  stops that phrase pair as soon as one exact Enigma solution is proven.
 - `src/enigma_m3_search_fast.cpp`: staged CPU search adapted from the macOS
   run. This is the fast engine.
 - `run_all_candidates.ps1`: launches the fast engine once per candidate
   ciphertext, in parallel, and writes a combined summary.
 - `src/enigma_cuda_prefix_filter.cu`: CUDA plugboard-feasibility prefix
   filter. It supports deeper exact prefixes up to the 17-character crib and
-  writes survivor lists for CPU full solving.
+  writes survivor lists for CPU full solving. The GPU core-map cache is enabled
+  by default; pass `--no-gpu-core-cache` to force the older arithmetic path.
+- `run_mixed_length_gpu_prefix_benchmark.ps1`: mixed-length GPU prefix runner.
+  Its defaults now use cached GPU core maps and direct survivor emission, so CPU
+  verification can run without replaying the GPU filter.
 - `run_gpu_hybrid_all_candidates.ps1`: GPU prefix filter plus parallel CPU
   full-solve runner for all default candidates. Its default prefix is now `13`,
   based on the 100M-state benchmark below.
@@ -136,6 +144,8 @@ the default candidate list was expanded to 16 entries.
 | `enigma_m3_search_fast.exe --behavior-direct` | 10M behavior classes, one candidate | 1.416s | 734M literal-equivalent states/s | Direct exact behavior classes, no scan/dedup build |
 | `run_behavior_direct_all_candidates.ps1` | 10M behavior classes against old 8-candidate set | 12.058s | 86.25M full eight-cipher literal-equivalent states/s | Direct exact behavior classes, stage 1/5 skipped |
 | `run_behavior_direct_all_candidates.ps1` | 50M behavior classes against old 8-candidate set | 60.000s | 86.67M full eight-cipher literal-equivalent states/s | Before stage 1/5 skip; still representative |
+| Cached CUDA prefix filter | 10M behavior classes, 288 actual 14-char targets | 17.68s total | 162.9M behavior-target checks/s including cache build | Survivor counts matched arithmetic path exactly |
+| `run_phrase_pair_first.ps1` | 10M behavior classes, all 25 14-char phrase pairs | 171.5s | 98.3M behavior-target checks/s | Found and CPU-verified all 25/25 phrase pairs in first chunk |
 
 The correctness-first single-process multi-candidate reference
 `enigma_search.exe` measured about `252k` states/s for 10M states and the old
@@ -176,6 +186,12 @@ CUDA prefix filter for one candidate:
 ```powershell
 .\enigma_cuda_prefix_filter.exe --tier 2 --plaintext REALITYISACONFLUX --ciphertext ZYZYFVWJUFEXKGPOB --max-states 50000000 --survivor-dir .\gpu_survivors_50m --output gpu_prefix_50m_single_c8_with_survivors.json
 .\enigma_m3_search_fast.exe --tier 2 --plaintext REALITYISACONFLUX --ciphertext ZYZYFVWJUFEXKGPOB --threads 32 --state-list-binary .\gpu_survivors_50m\candidate_0_survivors.bin --progress-seconds 0 --skip-initial-tests --output hybrid_fullsolve_50m_single_c8.json
+```
+
+Phrase-pair-first story clue run:
+
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\run_phrase_pair_first.ps1 -ReaderPlaintextsPath .\story_clue_reader_plaintexts_14_only.txt -GordonPlaintextsPath .\story_clue_gordon_plaintexts_14_only.txt -WorkDir .\phrase_pair_first_14 -SummaryPath .\phrase_pair_first_14_summary.json
 ```
 
 ## Full default Tier 2 run

@@ -1,6 +1,7 @@
 #include <cuda_runtime.h>
 
 #include <chrono>
+#include <array>
 #include <cstdint>
 #include <cstdio>
 #include <cstdlib>
@@ -102,10 +103,84 @@ static void check_cuda(cudaError_t err, const char* where) {
     }
 }
 
+static uint8_t host_core_letter(int x,
+                                int reflector,
+                                const std::array<uint8_t, 3>& rotors,
+                                const int offsets[3]) {
+    for (int slot = 2; slot >= 0; --slot) {
+        int shifted = (x + offsets[slot]) % 26;
+        int wired = letter(ROTOR_WIRINGS[rotors[slot]][shifted]);
+        x = (wired - offsets[slot] + 26) % 26;
+    }
+    x = letter(REFLECTOR_WIRINGS[reflector][x]);
+    for (int slot = 0; slot < 3; ++slot) {
+        int shifted = (x + offsets[slot]) % 26;
+        const char* wiring = ROTOR_WIRINGS[rotors[slot]];
+        int wired = 0;
+        for (; wired < ALPHA; ++wired) {
+            if (letter(wiring[wired]) == shifted) break;
+        }
+        x = (wired - offsets[slot] + 26) % 26;
+    }
+    return static_cast<uint8_t>(x);
+}
+
+static std::vector<std::array<uint8_t, 3>> host_rotor_orders_for_tier(int tier) {
+    std::vector<std::array<uint8_t, 3>> orders;
+    if (tier == 1) {
+        orders.push_back({2, 0, 3}); // III I IV
+        return orders;
+    }
+    for (int a = 0; a < ROTOR_COUNT; ++a) {
+        for (int b = 0; b < ROTOR_COUNT; ++b) {
+            if (b == a) continue;
+            for (int c = 0; c < ROTOR_COUNT; ++c) {
+                if (c == a || c == b) continue;
+                orders.push_back({
+                    static_cast<uint8_t>(a),
+                    static_cast<uint8_t>(b),
+                    static_cast<uint8_t>(c),
+                });
+            }
+        }
+    }
+    return orders;
+}
+
+static std::vector<uint8_t> build_core_cache_host(int tier) {
+    std::vector<std::array<uint8_t, 3>> orders = host_rotor_orders_for_tier(tier);
+    std::vector<uint8_t> cache(
+        orders.size() * REFLECTOR_COUNT * TRIPLET_COUNT * ALPHA);
+
+    int offsets[3] = {};
+    for (size_t order = 0; order < orders.size(); ++order) {
+        for (int reflector = 0; reflector < REFLECTOR_COUNT; ++reflector) {
+            for (int offset_idx = 0; offset_idx < TRIPLET_COUNT; ++offset_idx) {
+                offsets[0] = offset_idx / (26 * 26);
+                offsets[1] = (offset_idx / 26) % 26;
+                offsets[2] = offset_idx % 26;
+                size_t base =
+                    (((order * REFLECTOR_COUNT + static_cast<size_t>(reflector)) *
+                      TRIPLET_COUNT + static_cast<size_t>(offset_idx)) *
+                     ALPHA);
+                for (int x = 0; x < ALPHA; ++x) {
+                    cache[base + static_cast<size_t>(x)] =
+                        host_core_letter(x, reflector, orders[order], offsets);
+                }
+            }
+        }
+    }
+    return cache;
+}
+
 __device__ __forceinline__ void decode_triplet(uint32_t index, int out[3]) {
     out[0] = static_cast<int>(index / (26 * 26));
     out[1] = static_cast<int>((index / 26) % 26);
     out[2] = static_cast<int>(index % 26);
+}
+
+__device__ __forceinline__ uint32_t encode_triplet_device(const int values[3]) {
+    return static_cast<uint32_t>(values[0] * 26 * 26 + values[1] * 26 + values[2]);
 }
 
 __device__ __forceinline__ void step_positions(const uint8_t rotors[3], const int rings[3], int pos[3]) {
@@ -329,7 +404,9 @@ __device__ bool dfs_prefix_candidate(int candidate_index,
     return false;
 }
 
-__device__ void build_state_maps(uint64_t absolute_index, uint8_t maps[MAX_PREFIX][ALPHA]) {
+__device__ void build_state_maps(uint64_t absolute_index,
+                                 uint8_t maps[MAX_PREFIX][ALPHA],
+                                 const uint8_t* core_cache) {
     uint64_t work = absolute_index;
     uint32_t start_idx = static_cast<uint32_t>(work % TRIPLET_COUNT);
     work /= TRIPLET_COUNT;
@@ -351,8 +428,25 @@ __device__ void build_state_maps(uint64_t absolute_index, uint8_t maps[MAX_PREFI
 
     for (int i = 0; i < d_prefix_len; ++i) {
         step_positions(rotors, rings, pos);
-        for (int x = 0; x < ALPHA; ++x) {
-            maps[i][x] = core_letter(x, reflector, rotors, rings, pos);
+        if (core_cache != nullptr) {
+            int offsets[3] = {
+                (pos[0] - rings[0] + 26) % 26,
+                (pos[1] - rings[1] + 26) % 26,
+                (pos[2] - rings[2] + 26) % 26,
+            };
+            uint32_t offset_idx = encode_triplet_device(offsets);
+            uint64_t base =
+                (((static_cast<uint64_t>(rotor_order_index) * REFLECTOR_COUNT +
+                   static_cast<uint64_t>(reflector)) *
+                  TRIPLET_COUNT + static_cast<uint64_t>(offset_idx)) *
+                 ALPHA);
+            for (int x = 0; x < ALPHA; ++x) {
+                maps[i][x] = core_cache[base + static_cast<uint64_t>(x)];
+            }
+        } else {
+            for (int x = 0; x < ALPHA; ++x) {
+                maps[i][x] = core_letter(x, reflector, rotors, rings, pos);
+            }
         }
     }
 }
@@ -361,7 +455,9 @@ __device__ __forceinline__ int representative_ring_for_threshold(uint8_t rotor, 
     return (static_cast<int>(d_notches[rotor]) - threshold + 26) % 26;
 }
 
-__device__ void build_behavior_class_maps(uint64_t class_index, uint8_t maps[MAX_PREFIX][ALPHA]) {
+__device__ void build_behavior_class_maps(uint64_t class_index,
+                                          uint8_t maps[MAX_PREFIX][ALPHA],
+                                          const uint8_t* core_cache) {
     uint64_t work = class_index;
     uint32_t offset_idx = static_cast<uint32_t>(work % TRIPLET_COUNT);
     work /= TRIPLET_COUNT;
@@ -394,24 +490,41 @@ __device__ void build_behavior_class_maps(uint64_t class_index, uint8_t maps[MAX
 
     for (int i = 0; i < d_prefix_len; ++i) {
         step_positions(rotors, rings, pos);
-        for (int x = 0; x < ALPHA; ++x) {
-            maps[i][x] = core_letter(x, reflector, rotors, rings, pos);
+        if (core_cache != nullptr) {
+            int stepped_offsets[3] = {
+                (pos[0] - rings[0] + 26) % 26,
+                (pos[1] - rings[1] + 26) % 26,
+                (pos[2] - rings[2] + 26) % 26,
+            };
+            uint32_t offset_idx = encode_triplet_device(stepped_offsets);
+            uint64_t base =
+                (((static_cast<uint64_t>(rotor_order_index) * REFLECTOR_COUNT +
+                   static_cast<uint64_t>(reflector)) *
+                  TRIPLET_COUNT + static_cast<uint64_t>(offset_idx)) *
+                 ALPHA);
+            for (int x = 0; x < ALPHA; ++x) {
+                maps[i][x] = core_cache[base + static_cast<uint64_t>(x)];
+            }
+        } else {
+            for (int x = 0; x < ALPHA; ++x) {
+                maps[i][x] = core_letter(x, reflector, rotors, rings, pos);
+            }
         }
     }
 }
 
-__device__ bool state_passes_prefix(uint64_t absolute_index) {
+__device__ bool state_passes_prefix(uint64_t absolute_index, const uint8_t* core_cache) {
     uint8_t maps[MAX_PREFIX][ALPHA];
-    build_state_maps(absolute_index, maps);
+    build_state_maps(absolute_index, maps, core_cache);
 
     int8_t mapping[ALPHA];
     for (int i = 0; i < ALPHA; ++i) mapping[i] = UNKNOWN;
     return dfs_prefix(mapping, 0, maps, 0);
 }
 
-__device__ bool behavior_class_passes_prefix(uint64_t class_index) {
+__device__ bool behavior_class_passes_prefix(uint64_t class_index, const uint8_t* core_cache) {
     uint8_t maps[MAX_PREFIX][ALPHA];
-    build_behavior_class_maps(class_index, maps);
+    build_behavior_class_maps(class_index, maps, core_cache);
 
     int8_t mapping[ALPHA];
     for (int i = 0; i < ALPHA; ++i) mapping[i] = UNKNOWN;
@@ -422,12 +535,13 @@ __global__ void prefix_filter_kernel(uint64_t start_index,
                                      uint64_t states,
                                      uint64_t* survivors,
                                      uint64_t survivor_capacity,
-                                     uint32_t* survivor_count) {
+                                     uint32_t* survivor_count,
+                                     const uint8_t* core_cache) {
     uint64_t tid = static_cast<uint64_t>(blockIdx.x) * blockDim.x + threadIdx.x;
     uint64_t stride = static_cast<uint64_t>(gridDim.x) * blockDim.x;
     for (uint64_t item = tid; item < states; item += stride) {
         uint64_t absolute = start_index + item;
-        if (state_passes_prefix(absolute)) {
+        if (state_passes_prefix(absolute, core_cache)) {
             uint32_t slot = atomicAdd(survivor_count, 1u);
             if (survivors != nullptr && static_cast<uint64_t>(slot) < survivor_capacity) {
                 survivors[slot] = absolute;
@@ -440,12 +554,13 @@ __global__ void prefix_filter_behavior_kernel(uint64_t start_index,
                                              uint64_t classes,
                                              uint64_t* survivors,
                                              uint64_t survivor_capacity,
-                                             uint32_t* survivor_count) {
+                                             uint32_t* survivor_count,
+                                             const uint8_t* core_cache) {
     uint64_t tid = static_cast<uint64_t>(blockIdx.x) * blockDim.x + threadIdx.x;
     uint64_t stride = static_cast<uint64_t>(gridDim.x) * blockDim.x;
     for (uint64_t item = tid; item < classes; item += stride) {
         uint64_t absolute = start_index + item;
-        if (behavior_class_passes_prefix(absolute)) {
+        if (behavior_class_passes_prefix(absolute, core_cache)) {
             uint32_t slot = atomicAdd(survivor_count, 1u);
             if (survivors != nullptr && static_cast<uint64_t>(slot) < survivor_capacity) {
                 survivors[slot] = absolute;
@@ -458,13 +573,14 @@ __global__ void prefix_filter_multi_kernel(uint64_t start_index,
                                            uint64_t states,
                                            uint64_t* survivors,
                                            uint64_t survivor_capacity,
-                                           uint32_t* survivor_counts) {
+                                           uint32_t* survivor_counts,
+                                           const uint8_t* core_cache) {
     uint64_t tid = static_cast<uint64_t>(blockIdx.x) * blockDim.x + threadIdx.x;
     uint64_t stride = static_cast<uint64_t>(gridDim.x) * blockDim.x;
     for (uint64_t item = tid; item < states; item += stride) {
         uint64_t absolute = start_index + item;
         uint8_t maps[MAX_PREFIX][ALPHA];
-        build_state_maps(absolute, maps);
+        build_state_maps(absolute, maps, core_cache);
         for (int ci = 0; ci < d_candidate_count; ++ci) {
             int8_t mapping[ALPHA];
             for (int i = 0; i < ALPHA; ++i) mapping[i] = UNKNOWN;
@@ -482,13 +598,14 @@ __global__ void prefix_filter_behavior_multi_kernel(uint64_t start_index,
                                                     uint64_t classes,
                                                     uint64_t* survivors,
                                                     uint64_t survivor_capacity,
-                                                    uint32_t* survivor_counts) {
+                                                    uint32_t* survivor_counts,
+                                                    const uint8_t* core_cache) {
     uint64_t tid = static_cast<uint64_t>(blockIdx.x) * blockDim.x + threadIdx.x;
     uint64_t stride = static_cast<uint64_t>(gridDim.x) * blockDim.x;
     for (uint64_t item = tid; item < classes; item += stride) {
         uint64_t absolute = start_index + item;
         uint8_t maps[MAX_PREFIX][ALPHA];
-        build_behavior_class_maps(absolute, maps);
+        build_behavior_class_maps(absolute, maps, core_cache);
         for (int ci = 0; ci < d_candidate_count; ++ci) {
             int8_t mapping[ALPHA];
             for (int i = 0; i < ALPHA; ++i) mapping[i] = UNKNOWN;
@@ -512,6 +629,7 @@ struct Options {
     bool allow_experimental_combined = false;
     bool behavior_direct = false;
     bool count_only = false;
+    bool use_core_cache = true;
     int tier = 2;
     uint64_t start_index = 0;
     uint64_t max_states = 10000000;
@@ -577,6 +695,8 @@ static Options parse_args(int argc, char** argv) {
         else if (arg == "--allow-experimental-combined") opt.allow_experimental_combined = true;
         else if (arg == "--behavior-direct") opt.behavior_direct = true;
         else if (arg == "--count-only") opt.count_only = true;
+        else if (arg == "--gpu-core-cache" || arg == "--use-core-cache") opt.use_core_cache = true;
+        else if (arg == "--no-gpu-core-cache" || arg == "--no-core-cache") opt.use_core_cache = false;
         else if (arg == "--tier") opt.tier = static_cast<int>(parse_u64(need("--tier")));
         else if (arg == "--start-index") opt.start_index = parse_u64(need("--start-index"));
         else if (arg == "--max-states") opt.max_states = parse_u64(need("--max-states"));
@@ -588,7 +708,7 @@ static Options parse_args(int argc, char** argv) {
         else if (arg == "--output") opt.output = need("--output");
         else if (arg == "--survivor-dir") opt.survivor_dir = need("--survivor-dir");
         else if (arg == "--help") {
-            std::puts("Usage: enigma_cuda_prefix_filter [--ciphertext TEXT | --candidate-file PATH | --default-candidates] --max-states N [--count-only] [--survivor-cap N]");
+            std::puts("Usage: enigma_cuda_prefix_filter [--ciphertext TEXT | --candidate-file PATH | --default-candidates] --max-states N [--count-only] [--survivor-cap N] [--no-gpu-core-cache]");
             std::exit(0);
         } else {
             std::fprintf(stderr, "unknown arg: %s\n", arg.c_str());
@@ -846,6 +966,21 @@ int main(int argc, char** argv) {
     check_cuda(cudaDeviceSetLimit(cudaLimitStackSize, 32768), "set stack size");
     setup_machine_constants(opt.tier);
 
+    uint8_t* d_core_cache = nullptr;
+    std::vector<uint8_t> core_cache;
+    double core_cache_build_seconds = 0.0;
+    if (opt.use_core_cache) {
+        auto cache_begin = std::chrono::steady_clock::now();
+        core_cache = build_core_cache_host(opt.tier);
+        auto cache_built = std::chrono::steady_clock::now();
+        core_cache_build_seconds =
+            std::chrono::duration<double>(cache_built - cache_begin).count();
+        check_cuda(cudaMalloc(&d_core_cache, core_cache.size()), "malloc core cache");
+        check_cuda(
+            cudaMemcpy(d_core_cache, core_cache.data(), core_cache.size(), cudaMemcpyHostToDevice),
+            "copy core cache");
+    }
+
     int blocks = opt.blocks;
     if (blocks <= 0) blocks = prop.multiProcessorCount * 8;
 
@@ -876,6 +1011,9 @@ int main(int argc, char** argv) {
     json << "  \"behavior_direct\": " << (opt.behavior_direct ? "true" : "false") << ",\n";
     json << "  \"count_only\": " << (opt.count_only ? "true" : "false") << ",\n";
     json << "  \"prefix_len\": " << opt.prefix_len << ",\n";
+    json << "  \"gpu_core_cache\": " << (opt.use_core_cache ? "true" : "false") << ",\n";
+    json << "  \"gpu_core_cache_bytes\": " << core_cache.size() << ",\n";
+    json << "  \"gpu_core_cache_build_seconds\": " << core_cache_build_seconds << ",\n";
     json << "  \"survivor_cap\": " << survivor_capacity << ",\n";
     json << "  \"combined_candidates\": " << (opt.combined_candidates ? "true" : "false") << ",\n";
     json << "  \"blocks\": " << blocks << ",\n";
@@ -892,9 +1030,9 @@ int main(int argc, char** argv) {
         check_cuda(cudaEventCreate(&end), "multi event end");
         check_cuda(cudaEventRecord(begin), "record multi begin");
         if (opt.behavior_direct) {
-            prefix_filter_behavior_multi_kernel<<<blocks, opt.threads>>>(opt.start_index, opt.max_states, d_survivors, survivor_capacity, d_count);
+            prefix_filter_behavior_multi_kernel<<<blocks, opt.threads>>>(opt.start_index, opt.max_states, d_survivors, survivor_capacity, d_count, d_core_cache);
         } else {
-            prefix_filter_multi_kernel<<<blocks, opt.threads>>>(opt.start_index, opt.max_states, d_survivors, survivor_capacity, d_count);
+            prefix_filter_multi_kernel<<<blocks, opt.threads>>>(opt.start_index, opt.max_states, d_survivors, survivor_capacity, d_count, d_core_cache);
         }
         check_cuda(cudaGetLastError(), "multi kernel launch");
         check_cuda(cudaEventRecord(end), "record multi end");
@@ -961,9 +1099,9 @@ int main(int argc, char** argv) {
         check_cuda(cudaEventCreate(&end), "event end");
         check_cuda(cudaEventRecord(begin), "record begin");
         if (opt.behavior_direct) {
-            prefix_filter_behavior_kernel<<<blocks, opt.threads>>>(opt.start_index, opt.max_states, d_survivors, survivor_capacity, d_count);
+            prefix_filter_behavior_kernel<<<blocks, opt.threads>>>(opt.start_index, opt.max_states, d_survivors, survivor_capacity, d_count, d_core_cache);
         } else {
-            prefix_filter_kernel<<<blocks, opt.threads>>>(opt.start_index, opt.max_states, d_survivors, survivor_capacity, d_count);
+            prefix_filter_kernel<<<blocks, opt.threads>>>(opt.start_index, opt.max_states, d_survivors, survivor_capacity, d_count, d_core_cache);
         }
         check_cuda(cudaGetLastError(), "kernel launch");
         check_cuda(cudaEventRecord(end), "record end");
@@ -1021,6 +1159,9 @@ int main(int argc, char** argv) {
 
     if (d_survivors != nullptr) {
         cudaFree(d_survivors);
+    }
+    if (d_core_cache != nullptr) {
+        cudaFree(d_core_cache);
     }
     cudaFree(d_count);
     return 0;

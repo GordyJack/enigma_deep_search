@@ -13,14 +13,19 @@ param(
     [string]$GeneratedTargetsPath = ".\mixed_generated_benchmark.json",
     [string]$ValidationReportPath = ".\mixed_length_validation_latest.json",
     [UInt64]$GpuSurvivorCap = 1000000,
-    [int]$ProgressSeconds = 60,
+    [int]$ProgressSeconds = 300,
     [switch]$SkipValidation,
     [switch]$SkipGenerate,
     [switch]$SkipCpuVerify,
-    [switch]$DirectEmitSurvivors
+    [switch]$DirectEmitSurvivors,
+    [switch]$CountOnlyFirst,
+    [switch]$GpuCoreCache,
+    [switch]$NoGpuCoreCache
 )
 
 $ErrorActionPreference = "Stop"
+$emitGpuSurvivors = (-not [bool]$CountOnlyFirst) -or [bool]$DirectEmitSurvivors
+$useGpuCoreCache = -not [bool]$NoGpuCoreCache
 
 function Read-JsonFile {
     param([Parameter(Mandatory=$true)] [string]$Path)
@@ -274,10 +279,15 @@ foreach ($length in $lengthOrder) {
             "--prefix-len", "$length",
             "--output", $gpuOutput
         )
-        if ($DirectEmitSurvivors) {
+        if ($emitGpuSurvivors) {
             $gpuArgs += @("--survivor-dir", $groupDir, "--survivor-cap", "$GpuSurvivorCap")
         } else {
             $gpuArgs += "--count-only"
+        }
+        if ($useGpuCoreCache) {
+            $gpuArgs += "--gpu-core-cache"
+        } else {
+            $gpuArgs += "--no-gpu-core-cache"
         }
         $gpuWall = Invoke-CheckedProcess -FilePath $gpuExe -ArgumentList $gpuArgs -WorkingDirectory $repoDir -StdoutPath $gpuStdout -StderrPath $gpuStderr -Label "GPU length $length Gordon rank $gordonRank" -ResultJsonPath $gpuOutput -ExpectedCandidateRecords $groupTargets.Count
         $lengthGpuWall += $gpuWall
@@ -315,7 +325,7 @@ foreach ($length in $lengthOrder) {
                 if ($survivorOverflow) {
                     throw "GPU survivor cap overflow for target $($target.id): survivors=$survivors stored=$survivorsStored cap=$GpuSurvivorCap"
                 }
-                if ($DirectEmitSurvivors) {
+                if ($emitGpuSurvivors) {
                     $survivorPath = Join-Path $groupDir ("candidate_{0}_survivors.bin" -f $candidate.id)
                     $verifyDir = Join-Path $groupDir ("verify_candidate_{0}" -f $candidate.id)
                     New-Item -ItemType Directory -Force -Path $verifyDir | Out-Null
@@ -341,6 +351,11 @@ foreach ($length in $lengthOrder) {
                         "--survivor-cap", "$GpuSurvivorCap",
                         "--output", $replayGpuOutput
                     )
+                    if ($useGpuCoreCache) {
+                        $replayArgs += "--gpu-core-cache"
+                    } else {
+                        $replayArgs += "--no-gpu-core-cache"
+                    }
                     $replayGpuWall = Invoke-CheckedProcess -FilePath $gpuExe -ArgumentList $replayArgs -WorkingDirectory $repoDir -StdoutPath $replayGpuStdout -StderrPath $replayGpuStderr -Label "GPU replay target $($target.id)" -ResultJsonPath $replayGpuOutput -ExpectedCandidateRecords 1
                     $replay = Read-JsonFile -Path $replayGpuOutput
                     $replayCandidate = @($replay.candidates)[0]
@@ -419,7 +434,8 @@ foreach ($length in $lengthOrder) {
             gpu_json_wall_seconds = [double]$gpu.wall_elapsed_seconds
             gpu_aggregate_checks_per_second_wall = $(if ($gpuWall -gt 0) { $groupChecks / $gpuWall } else { 0 })
             gpu_survivors = $groupSurvivors
-            gpu_direct_emit_survivors = [bool]$DirectEmitSurvivors
+            gpu_direct_emit_survivors = [bool]$emitGpuSurvivors
+            gpu_core_cache = [bool]$useGpuCoreCache
             gpu_survivor_cap = $GpuSurvivorCap
             cpu_verify_wall_seconds = $groupCpuWall
             cpu_verified_result_count = $groupVerified
@@ -513,7 +529,8 @@ $summaryObject = [pscustomobject]@{
     full_behavior_classes_per_target = $fullClassesPerTarget
     cpu_threads = $CpuThreads
     cpu_verify_skipped = [bool]$SkipCpuVerify
-    gpu_direct_emit_survivors = [bool]$DirectEmitSurvivors
+    gpu_direct_emit_survivors = [bool]$emitGpuSurvivors
+    gpu_core_cache = [bool]$useGpuCoreCache
     gpu_survivor_cap = $GpuSurvivorCap
     progress_seconds = $ProgressSeconds
     total_gpu_behavior_target_checks = $totalChecks
