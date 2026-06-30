@@ -10,8 +10,7 @@ param(
     [UInt64]$CpuVerifySurvivorLimit = 50000,
     [int]$CpuThreads = 8,
     [int]$StopThreshold = 20,
-    [ValidateRange(0, 13)]
-    [int]$MaxGordonPlugboardPairs = 4,
+    [int]$MaxGordonPlugboardPairs = -1,
     [int]$MaxResultsPerOption = 200,
     [int]$BalloonResultThreshold = 200,
     [switch]$NoGpuCoreCache
@@ -23,6 +22,13 @@ $useGpuCoreCache = -not [bool]$NoGpuCoreCache
 $TargetGordonPlaintext = "MINDORDERCHAOS"
 $DisplayGordonText = "MIND+ORDER+CHAOS=REALITY"
 $FullGordonPlaintext = "MINDORDERCHAOSREALITY"
+$TargetGordonLength = ($TargetGordonPlaintext.ToUpperInvariant() -replace '[^A-Z]', '').Length
+if ($MaxGordonPlugboardPairs -lt 0) {
+    $MaxGordonPlugboardPairs = [Math]::Max(0, [Math]::Floor($TargetGordonLength / 2) - 1)
+}
+if ($MaxGordonPlugboardPairs -lt 0 -or $MaxGordonPlugboardPairs -gt 13) {
+    throw "MaxGordonPlugboardPairs must be between 0 and 13 after auto/default calculation"
+}
 $FunctionalReaders = @(
     "MOMENTHIDDEATH",
     "THEDAYHIDDEATH",
@@ -574,6 +580,8 @@ $summaryObject = [pscustomobject]@{
     target_gordon_match_plaintext = $TargetGordonPlaintext
     display_gordon_text = $DisplayGordonText
     full_gordon_plaintext = $FullGordonPlaintext
+    comparison_plaintext_length = $TargetGordonLength
+    max_gordon_plugboard_pairs_formula = "floor(n / 2) - 1"
     reader_settings_locked = [pscustomobject]@{
         reflector = "B"
         rotors_left_to_right = "III I IV"
@@ -613,9 +621,12 @@ $reportLines.Add("")
 $reportLines.Add("- Gordon match plaintext: ``$TargetGordonPlaintext``")
 $reportLines.Add("- Display-facing Gordon text: ``$DisplayGordonText``")
 $reportLines.Add("- Full continuous Gordon plaintext: ``$FullGordonPlaintext``")
+$reportLines.Add("- Comparison plaintext length n: $TargetGordonLength")
+$reportLines.Add("- Gordon plugboard cap formula: floor(n / 2) - 1")
 $reportLines.Add("- Reader settings: reflector B, rotors III I IV, start GJM, rings MMM")
 $reportLines.Add("- Reader plugboard option order: $($ReaderPlugboardOrder -join ' -> ')")
 $reportLines.Add("- Gordon max active plugboard pairs: $MaxGordonPlugboardPairs")
+$reportLines.Add("- Restored Gordon search scope: Tier 2, reflectors B/C, rotors I-V all 60 orders, all starts, all rings")
 $reportLines.Add("- Stop threshold: $StopThreshold cumulative CPU-verified literal Gordon settings per reader phrase")
 $reportLines.Add("- Total literal Gordon settings reported: $($allLiteralRows.Count)")
 $reportLines.Add("- Wall time: $([Math]::Round($watch.Elapsed.TotalSeconds, 3)) seconds")

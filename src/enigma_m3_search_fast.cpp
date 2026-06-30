@@ -913,11 +913,13 @@ struct ReaderCandidate {
     int reader_rank = 0;
     int reader_plaintext_rank = 1;
     int reader_generated_rank = 0;
+    int reader_reflector_rank = 0;
     int start_ring_rank = 0;
     int plugboard_rank = 0;
     int normalized_length = MESSAGE_LEN;
     std::string reader_plaintext_original = "THEDEATHWASERASED";
     std::string reader_plaintext = "THEDEATHWASERASED";
+    std::string reader_reflector = "B";
     std::string start;
     std::string rings;
     int plugboard_mask = 0;
@@ -997,6 +999,13 @@ std::vector<std::pair<std::string, std::string>> reader_start_ring_order_for_mod
         return {{"GJM", "MMM"}};
     }
     return reader_start_ring_order();
+}
+
+std::vector<std::string> reader_reflector_order_for_mode(ReaderMode mode) {
+    if (mode == ReaderMode::Strict) {
+        return {"B"};
+    }
+    return {"B", "C"};
 }
 
 std::vector<int> reader_plugboard_masks_for_mode(ReaderMode mode) {
@@ -1088,6 +1097,7 @@ std::vector<ReaderCandidate> generate_reader_candidates_for_plaintexts(
     const std::vector<NormalizedTextEntry>& plaintexts,
     ReaderMode reader_mode = ReaderMode::Full) {
 
+    const auto reflectors = reader_reflector_order_for_mode(reader_mode);
     const auto start_ring = reader_start_ring_order_for_mode(reader_mode);
     std::vector<int> masks = reader_plugboard_masks_for_mode(reader_mode);
     std::vector<ReaderCandidate> out;
@@ -1095,37 +1105,41 @@ std::vector<ReaderCandidate> generate_reader_candidates_for_plaintexts(
 
     for (const auto& entry : plaintexts) {
         int generated_rank = 1;
-        for (size_t sr = 0; sr < start_ring.size(); ++sr) {
-            for (size_t pr = 0; pr < masks.size(); ++pr) {
-                int mask = masks[pr];
-                std::string pairs = reader_plugboard_label(mask);
-                EnigmaMachine reader = (
-                    EnigmaBuilder()
-                    .reflector("B")
-                    .rotors("III", "I", "IV")
-                    .start(start_ring[sr].first)
-                    .rings(start_ring[sr].second)
-                    .plugboard(pairs == "none" ? "" : pairs)
-                    .build()
-                );
-                std::string cipher = reader.encrypt(entry.normalized);
+        for (size_t rr = 0; rr < reflectors.size(); ++rr) {
+            for (size_t sr = 0; sr < start_ring.size(); ++sr) {
+                for (size_t pr = 0; pr < masks.size(); ++pr) {
+                    int mask = masks[pr];
+                    std::string pairs = reader_plugboard_label(mask);
+                    EnigmaMachine reader = (
+                        EnigmaBuilder()
+                        .reflector(reflectors[rr])
+                        .rotors("III", "I", "IV")
+                        .start(start_ring[sr].first)
+                        .rings(start_ring[sr].second)
+                        .plugboard(pairs == "none" ? "" : pairs)
+                        .build()
+                    );
+                    std::string cipher = reader.encrypt(entry.normalized);
 
-                ReaderCandidate item;
-                item.reader_rank = global_rank++;
-                item.reader_plaintext_rank = entry.rank;
-                item.reader_generated_rank = generated_rank++;
-                item.start_ring_rank = static_cast<int>(sr) + 1;
-                item.plugboard_rank = static_cast<int>(pr) + 1;
-                item.normalized_length = entry.length;
-                item.reader_plaintext_original = entry.original;
-                item.reader_plaintext = entry.normalized;
-                item.start = start_ring[sr].first;
-                item.rings = start_ring[sr].second;
-                item.plugboard_mask = mask;
-                item.active_pairs_label = pairs;
-                item.ciphertext = cipher;
-                item.grouped_ciphertext = group_five(cipher);
-                out.push_back(item);
+                    ReaderCandidate item;
+                    item.reader_rank = global_rank++;
+                    item.reader_plaintext_rank = entry.rank;
+                    item.reader_generated_rank = generated_rank++;
+                    item.reader_reflector_rank = static_cast<int>(rr) + 1;
+                    item.start_ring_rank = static_cast<int>(sr) + 1;
+                    item.plugboard_rank = static_cast<int>(pr) + 1;
+                    item.normalized_length = entry.length;
+                    item.reader_plaintext_original = entry.original;
+                    item.reader_plaintext = entry.normalized;
+                    item.reader_reflector = reflectors[rr];
+                    item.start = start_ring[sr].first;
+                    item.rings = start_ring[sr].second;
+                    item.plugboard_mask = mask;
+                    item.active_pairs_label = pairs;
+                    item.ciphertext = cipher;
+                    item.grouped_ciphertext = group_five(cipher);
+                    out.push_back(item);
+                }
             }
         }
     }
@@ -1148,7 +1162,7 @@ void write_reader_candidates_json(const std::string& path) {
     }
     out << "{\n";
     out << "  \"reader_plaintext\": \"THEDEATHWASERASED\",\n";
-    out << "  \"reader_reflector\": \"B\",\n";
+    out << "  \"reader_reflector_preference_order\": [\"B\", \"C\"],\n";
     out << "  \"reader_rotors_left_to_right\": [\"III\", \"I\", \"IV\"],\n";
     out << "  \"reader_candidate_count\": " << candidates.size() << ",\n";
     out << "  \"gordon_plaintext_count\": " << plaintexts.size() << ",\n";
@@ -1158,6 +1172,8 @@ void write_reader_candidates_json(const std::string& path) {
         const auto& c = candidates[i];
         out << "    {"
             << "\"reader_rank\": " << c.reader_rank
+            << ", \"reader_reflector_rank\": " << c.reader_reflector_rank
+            << ", \"reader_reflector\": \"" << c.reader_reflector << "\""
             << ", \"start_ring_rank\": " << c.start_ring_rank
             << ", \"plugboard_rank\": " << c.plugboard_rank
             << ", \"start\": \"" << c.start << "\""
@@ -1384,6 +1400,8 @@ void write_mixed_reader_candidates_json(
             << "\"reader_rank\": " << c.reader_rank
             << ", \"reader_plaintext_rank\": " << c.reader_plaintext_rank
             << ", \"reader_generated_rank\": " << c.reader_generated_rank
+            << ", \"reader_reflector_rank\": " << c.reader_reflector_rank
+            << ", \"reader_reflector\": \"" << c.reader_reflector << "\""
             << ", \"start_ring_rank\": " << c.start_ring_rank
             << ", \"plugboard_rank\": " << c.plugboard_rank
             << ", \"normalized_length\": " << c.normalized_length
@@ -3261,9 +3279,9 @@ void write_validation_report_json(
     const std::vector<ValidationCheck>& checks,
     int reader_candidate_count,
     int behavior_sample_count,
-    int expected_reader_candidate_count = 96,
+    int expected_reader_candidate_count = 192,
     int gordon_plaintext_count = -1,
-    int expected_target_pairing_count = 768) {
+    int expected_target_pairing_count = 1536) {
 
     bool all_passed = true;
     for (const auto& check : checks) {
@@ -3304,22 +3322,23 @@ void run_validation_battery(const std::string& output_path) {
     std::vector<ReaderCandidate> readers = generate_reader_candidates();
     add_check(
         "reader candidate count",
-        readers.size() == 96,
+        readers.size() == 192,
         "generated " + std::to_string(readers.size()) + " reader candidates");
 
     struct ExpectedReader {
+        std::string reflector;
         std::string start;
         std::string rings;
         std::string pairs;
         std::string cipher;
     };
     const std::vector<ExpectedReader> expected_readers = {
-        {"GJM", "MMM", "PE AF GR", "BODZZCLWVQYKDVRAV"},
-        {"GJM", "MMM", "PE AF GR UT", "GODZZCWWVQYKDVRAV"},
-        {"GJM", "MMM", "none", "BOBZNKLWVUYHELGWV"},
-        {"GJM", "MMM", "PE GR", "BODZZKLWVUYKDLRFV"},
-        {"MMM", "GJM", "PE AF GR UT", "SSUQIJUVCHKZCTIPN"},
-        {"GJM", "RAE", "PE AF GR", "ZYZYFVWJUFEXKGPOB"},
+        {"B", "GJM", "MMM", "PE AF GR", "BODZZCLWVQYKDVRAV"},
+        {"B", "GJM", "MMM", "PE AF GR UT", "GODZZCWWVQYKDVRAV"},
+        {"B", "GJM", "MMM", "none", "BOBZNKLWVUYHELGWV"},
+        {"B", "GJM", "MMM", "PE GR", "BODZZKLWVUYKDLRFV"},
+        {"B", "MMM", "GJM", "PE AF GR UT", "SSUQIJUVCHKZCTIPN"},
+        {"B", "GJM", "RAE", "PE AF GR", "ZYZYFVWJUFEXKGPOB"},
     };
 
     for (size_t i = 0; i < expected_readers.size(); ++i) {
@@ -3327,7 +3346,8 @@ void run_validation_battery(const std::string& output_path) {
         bool found = false;
         std::string detail = "not found";
         for (const auto& candidate : readers) {
-            if (candidate.start == expected.start &&
+            if (candidate.reader_reflector == expected.reflector &&
+                candidate.start == expected.start &&
                 candidate.rings == expected.rings &&
                 candidate.active_pairs_label == expected.pairs) {
                 found = candidate.ciphertext == expected.cipher;
@@ -3344,11 +3364,12 @@ void run_validation_battery(const std::string& output_path) {
 
     if (!readers.empty()) {
         const auto& first = readers.front();
-        bool rank1 = first.start == "GJM" &&
+        bool rank1 = first.reader_reflector == "B" &&
+                     first.start == "GJM" &&
                      first.rings == "MMM" &&
                      first.active_pairs_label == "PE AF GR" &&
                      first.ciphertext == "BODZZCLWVQYKDVRAV";
-        add_check("rank 1 reader candidate", rank1, first.start + "/" + first.rings + "/" + first.active_pairs_label + "/" + first.ciphertext);
+        add_check("rank 1 reader candidate", rank1, first.reader_reflector + "/" + first.start + "/" + first.rings + "/" + first.active_pairs_label + "/" + first.ciphertext);
     }
 
     EnigmaMachine canonical = (
@@ -3649,10 +3670,10 @@ void run_mixed_length_validation(const std::string& output_path) {
         generated_lengths_ok,
         "generated " + std::to_string(mixed_candidates.size()) + " candidates");
     add_check("mixed-list input order preserved",
-        mixed_candidates.size() >= 193 &&
+        mixed_candidates.size() >= 385 &&
         mixed_candidates[0].normalized_length == 14 &&
-        mixed_candidates[96].normalized_length == 17 &&
-        mixed_candidates[192].normalized_length == 7,
+        mixed_candidates[192].normalized_length == 17 &&
+        mixed_candidates[384].normalized_length == 7,
         "order was 14 then 17 then 7");
 
     int same_length_pairings = 0;
@@ -3670,8 +3691,8 @@ void run_mixed_length_validation(const std::string& output_path) {
             }
         }
     }
-    add_check("mixed-list same-length pairing count", same_length_pairings == 288, std::to_string(same_length_pairings));
-    add_check("mixed-list mismatched lengths not paired", mismatched_pairings == 576, std::to_string(mismatched_pairings));
+    add_check("mixed-list same-length pairing count", same_length_pairings == 576, std::to_string(same_length_pairings));
+    add_check("mixed-list mismatched lengths not paired", mismatched_pairings == 1152, std::to_string(mismatched_pairings));
     add_check("mixed-list no-self filter exercised", impossible_skips > 0, std::to_string(impossible_skips));
 
     write_validation_report_json(
@@ -3679,9 +3700,9 @@ void run_mixed_length_validation(const std::string& output_path) {
         checks,
         static_cast<int>(mixed_candidates.size()),
         0,
-        288,
+        576,
         static_cast<int>(gordon_entries.size()),
-        288);
+        576);
     bool all_passed = true;
     for (const auto& check : checks) {
         all_passed = all_passed && check.passed;
@@ -3782,7 +3803,7 @@ SearchOptions parse_args(int argc, char** argv) {
                 << "  --behavior-direct            Directly iterate exact behavior classes; start/max count classes\n"
                 << "  --self-test                  Run smoke tests and exit\n"
                 << "  --skip-initial-tests         Skip smoke tests before searching\n"
-                << "  --generate-reader-candidates Generate the 96 finalized reader candidates to --output and exit\n"
+                << "  --generate-reader-candidates Generate the 192 finalized reader candidates to --output and exit\n"
                 << "  --generate-mixed-reader-candidates Generate mixed-length reader/Gordon candidates to --output and exit\n"
                 << "  --reader-mode full|strict    Reader generation mode for mixed generation (default full)\n"
                 << "  --strict-reader              Alias for --reader-mode strict\n"
