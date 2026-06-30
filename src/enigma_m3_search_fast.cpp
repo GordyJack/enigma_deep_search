@@ -973,6 +973,44 @@ std::vector<std::pair<std::string, std::string>> reader_start_ring_order() {
     };
 }
 
+enum class ReaderMode {
+    Full,
+    Strict,
+};
+
+std::string reader_mode_name(ReaderMode mode) {
+    return mode == ReaderMode::Strict ? "strict" : "full";
+}
+
+ReaderMode parse_reader_mode(const std::string& text) {
+    std::string mode = text;
+    std::transform(mode.begin(), mode.end(), mode.begin(), [](unsigned char ch) {
+        return static_cast<char>(std::tolower(ch));
+    });
+    if (mode == "full") return ReaderMode::Full;
+    if (mode == "strict") return ReaderMode::Strict;
+    throw std::runtime_error("--reader-mode must be full or strict");
+}
+
+std::vector<std::pair<std::string, std::string>> reader_start_ring_order_for_mode(ReaderMode mode) {
+    if (mode == ReaderMode::Strict) {
+        return {{"GJM", "MMM"}};
+    }
+    return reader_start_ring_order();
+}
+
+std::vector<int> reader_plugboard_masks_for_mode(ReaderMode mode) {
+    if (mode == ReaderMode::Strict) {
+        return {
+            0b0111, // PE AF GR
+            0b1111, // PE AF GR UT
+            0b0101, // PE AF
+            0b0001, // PE
+        };
+    }
+    return reader_plugboard_masks_in_preference_order();
+}
+
 std::vector<std::string> read_text_lines(const std::string& path) {
     std::ifstream in(path);
     if (!in) {
@@ -1047,10 +1085,11 @@ std::vector<NormalizedTextEntry> normalize_text_entries(
 }
 
 std::vector<ReaderCandidate> generate_reader_candidates_for_plaintexts(
-    const std::vector<NormalizedTextEntry>& plaintexts) {
+    const std::vector<NormalizedTextEntry>& plaintexts,
+    ReaderMode reader_mode = ReaderMode::Full) {
 
-    const auto start_ring = reader_start_ring_order();
-    std::vector<int> masks = reader_plugboard_masks_in_preference_order();
+    const auto start_ring = reader_start_ring_order_for_mode(reader_mode);
+    std::vector<int> masks = reader_plugboard_masks_for_mode(reader_mode);
     std::vector<ReaderCandidate> out;
     int global_rank = 1;
 
@@ -1210,23 +1249,18 @@ void write_length_groups_json(
 void write_mixed_reader_candidates_json(
     const std::string& path,
     const std::string& reader_path,
-    const std::string& gordon_path) {
+    const std::string& gordon_path,
+    ReaderMode reader_mode = ReaderMode::Full) {
 
     std::vector<std::string> reader_raw = read_text_lines(reader_path);
     std::vector<std::string> gordon_raw = read_text_lines(gordon_path);
-    if (reader_raw.size() != gordon_raw.size()) {
-        throw std::runtime_error("reader and Gordon plaintext lists must have the same raw entry count");
-    }
 
     std::vector<SkippedTextEntry> reader_skipped;
     std::vector<SkippedTextEntry> gordon_skipped;
     std::vector<NormalizedTextEntry> reader_entries = normalize_text_entries(reader_raw, reader_skipped);
     std::vector<NormalizedTextEntry> gordon_entries = normalize_text_entries(gordon_raw, gordon_skipped);
-    if (reader_entries.size() != gordon_entries.size()) {
-        throw std::runtime_error("reader and Gordon plaintext lists must have the same accepted entry count after invalid/duplicate handling");
-    }
 
-    std::vector<ReaderCandidate> reader_candidates = generate_reader_candidates_for_plaintexts(reader_entries);
+    std::vector<ReaderCandidate> reader_candidates = generate_reader_candidates_for_plaintexts(reader_entries, reader_mode);
     std::vector<GordonPlaintextTarget> gordon_targets;
     for (const auto& entry : gordon_entries) {
         gordon_targets.push_back(GordonPlaintextTarget{
@@ -1293,6 +1327,7 @@ void write_mixed_reader_candidates_json(
 
     out << "{\n";
     out << "  \"mode\": \"mixed_length_reader_candidates\",\n";
+    out << "  \"reader_mode\": \"" << reader_mode_name(reader_mode) << "\",\n";
     out << "  \"reader_plaintext_file\": \"" << json_escape(reader_path) << "\",\n";
     out << "  \"gordon_plaintext_file\": \"" << json_escape(gordon_path) << "\",\n";
     out << "  \"reader_raw_count\": " << reader_raw.size() << ",\n";
@@ -1403,6 +1438,7 @@ struct SearchOptions {
     bool mixed_length_validation = false;
     std::string reader_plaintexts_file;
     std::string gordon_plaintexts_file;
+    ReaderMode reader_mode = ReaderMode::Full;
 };
 
 std::string format_duration(double seconds) {
@@ -3714,6 +3750,10 @@ SearchOptions parse_args(int argc, char** argv) {
             options.generate_reader_candidates = true;
         } else if (arg == "--generate-mixed-reader-candidates") {
             options.generate_mixed_reader_candidates = true;
+        } else if (arg == "--reader-mode") {
+            options.reader_mode = parse_reader_mode(need_value(arg));
+        } else if (arg == "--strict-reader") {
+            options.reader_mode = ReaderMode::Strict;
         } else if (arg == "--reader-plaintexts-file") {
             options.reader_plaintexts_file = need_value(arg);
         } else if (arg == "--gordon-plaintexts-file") {
@@ -3744,6 +3784,8 @@ SearchOptions parse_args(int argc, char** argv) {
                 << "  --skip-initial-tests         Skip smoke tests before searching\n"
                 << "  --generate-reader-candidates Generate the 96 finalized reader candidates to --output and exit\n"
                 << "  --generate-mixed-reader-candidates Generate mixed-length reader/Gordon candidates to --output and exit\n"
+                << "  --reader-mode full|strict    Reader generation mode for mixed generation (default full)\n"
+                << "  --strict-reader              Alias for --reader-mode strict\n"
                 << "  --reader-plaintexts-file PATH  Reader plaintext list for mixed generation\n"
                 << "  --gordon-plaintexts-file PATH  Gordon plaintext list for mixed generation\n"
                 << "  --validation-battery         Run reader/known-hit/behavior validation to --output and exit\n"
@@ -3795,7 +3837,7 @@ int main(int argc, char** argv) {
             if (options.reader_plaintexts_file.empty() || options.gordon_plaintexts_file.empty()) {
                 throw std::runtime_error("--generate-mixed-reader-candidates requires --reader-plaintexts-file and --gordon-plaintexts-file");
             }
-            write_mixed_reader_candidates_json(options.output, options.reader_plaintexts_file, options.gordon_plaintexts_file);
+            write_mixed_reader_candidates_json(options.output, options.reader_plaintexts_file, options.gordon_plaintexts_file, options.reader_mode);
             std::cout << "Wrote mixed-length reader candidates to " << options.output << "\n" << std::flush;
             return 0;
         }

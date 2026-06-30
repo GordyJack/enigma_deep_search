@@ -1,0 +1,111 @@
+{
+  "mode": "mixed_length_reader_candidates",
+  "reader_mode": "strict",
+  "reader_plaintext_file": "C:\\Users\\xkell\\Documents\\Codex\\enigma_search\\story_clue_reader_plaintexts_14_selected.txt",
+  "gordon_plaintext_file": "C:\\Users\\xkell\\Documents\\Codex\\enigma_search\\story_clue_gordon_plaintexts_14_selected.txt",
+  "reader_raw_count": 7,
+  "gordon_raw_count": 10,
+  "reader_accepted_count": 7,
+  "gordon_accepted_count": 10,
+  "reader_skipped_count": 0,
+  "gordon_skipped_count": 0,
+  "reader_generated_candidate_count": 28,
+  "same_length_target_pairing_count": 280,
+  "impossible_pairings_skipped": 133,
+  "viable_pairing_count": 147,
+  "reader_skipped_entries": [
+  ],
+  "gordon_skipped_entries": [
+  ],
+  "reader_plaintexts": [
+    {"rank": 1, "raw_index": 1, "original": "MOMENTHIDDEATH", "plaintext": "MOMENTHIDDEATH", "normalized_length": 14},
+    {"rank": 2, "raw_index": 2, "original": "THEDAYHIDDEATH", "plaintext": "THEDAYHIDDEATH", "normalized_length": 14},
+    {"rank": 3, "raw_index": 3, "original": "SECRETLOOPDEAD", "plaintext": "SECRETLOOPDEAD", "normalized_length": 14},
+    {"rank": 4, "raw_index": 4, "original": "DEATHWASERASED", "plaintext": "DEATHWASERASED", "normalized_length": 14},
+    {"rank": 5, "raw_index": 5, "original": "DEATHREWRITTEN", "plaintext": "DEATHREWRITTEN", "normalized_length": 14},
+    {"rank": 6, "raw_index": 6, "original": "ONEYEARINWEEKS", "plaintext": "ONEYEARINWEEKS", "normalized_length": 14},
+    {"rank": 7, "raw_index": 7, "original": "HEWASDEADFIRST", "plaintext": "HEWASDEADFIRST", "normalized_length": 14}
+  ],
+  "gordon_plaintexts": [
+    {"rank": 1, "raw_index": 1, "original": "REALITYCONFLUX", "plaintext": "REALITYCONFLUX", "normalized_length": 14},
+    {"rank": 2, "raw_index": 2, "original": "LUXNOXNEEDMIND", "plaintext": "LUXNOXNEEDMIND", "normalized_length": 14},
+    {"rank": 3, "raw_index": 3, "original": "HELIOISCONFLUX", "plaintext": "HELIOISCONFLUX", "normalized_length": 14},
+    {"rank": 4, "raw_index": 4, "original": "TIMEISACONFLUX", "plaintext": "TIMEISACONFLUX", "normalized_length": 14},
+    {"rank": 5, "raw_index": 5, "original": "ANIMUSANCHORLN", "plaintext": "ANIMUSANCHORLN", "normalized_length": 14},
+    {"rank": 6, "raw_index": 6, "original": "LUXNOXWITHMIND", "plaintext": "LUXNOXWITHMIND", "normalized_length": 14},
+    {"rank": 7, "raw_index": 7, "original": "ORDERCHAOSMIND", "plaintext": "ORDERCHAOSMIND", "normalized_length": 14},
+    {"rank": 8, "raw_index": 8, "original": "CONFLUXUSESLNA", "plaintext": "CONFLUXUSESLNA", "normalized_length": 14},
+    {"rank": 9, "raw_index": 9, "original": "ANIMUSISTHEKEY", "plaintext": "ANIMUSISTHEKEY", "normalized_length": 14},
+    {"rank": 10, "raw_index": 10, "original": "MINDORDERCHAOS", "plaintext": "MINDORDERCHAOS", "normalized_length": 14}
+  ],
+  "reader_plaintexts_by_length": [
+    {"length": 14, "entries": [
+      {"rank": 1, "raw_index": 1, "original": "MOMENTHIDDEATH", "plaintext": "MOMENTHIDDEATH", "normalized_length": 14},
+      {"rank": 2, "raw_index": 2, "original": "THEDAYHIDDEATH", "plaintext": "THEDAYHIDDEATH", "normalized_length": 14},
+      {"rank": 3, "raw_index": 3, "original": "SECRETLOOPDEAD", "plaintext": "SECRETLOOPDEAD", "normalized_length": 14},
+      {"rank": 4, "raw_index": 4, "original": "DEATHWASERASED", "plaintext": "DEATHWASERASED", "normalized_length": 14},
+      {"rank": 5, "raw_index": 5, "original": "DEATHREWRITTEN", "plaintext": "DEATHREWRITTEN", "normalized_length": 14},
+      {"rank": 6, "raw_index": 6, "original": "ONEYEARINWEEKS", "plaintext": "ONEYEARINWEEKS", "normalized_length": 14},
+      {"rank": 7, "raw_index": 7, "original": "HEWASDEADFIRST", "plaintext": "HEWASDEADFIRST", "normalized_length": 14}
+    ]}
+  ],
+  "gordon_plaintexts_by_length": [
+    {"length": 14, "entries": [
+      {"rank": 1, "raw_index": 1, "original": "REALITYCONFLUX", "plaintext": "REALITYCONFLUX", "normalized_length": 14},
+      {"rank": 2, "raw_index": 2, "original": "LUXNOXNEEDMIND", "plaintext": "LUXNOXNEEDMIND", "normalized_length": 14},
+      {"rank": 3, "raw_index": 3, "original": "HELIOISCONFLUX", "plaintext": "HELIOISCONFLUX", "normalized_length": 14},
+      {"rank": 4, "raw_index": 4, "original": "TIMEISACONFLUX", "plaintext": "TIMEISACONFLUX", "normalized_length": 14},
+      {"rank": 5, "raw_index": 5, "original": "ANIMUSANCHORLN", "plaintext": "ANIMUSANCHORLN", "normalized_length": 14},
+      {"rank": 6, "raw_index": 6, "original": "LUXNOXWITHMIND", "plaintext": "LUXNOXWITHMIND", "normalized_length": 14},
+      {"rank": 7, "raw_index": 7, "original": "ORDERCHAOSMIND", "plaintext": "ORDERCHAOSMIND", "normalized_length": 14},
+      {"rank": 8, "raw_index": 8, "original": "CONFLUXUSESLNA", "plaintext": "CONFLUXUSESLNA", "normalized_length": 14},
+      {"rank": 9, "raw_index": 9, "original": "ANIMUSISTHEKEY", "plaintext": "ANIMUSISTHEKEY", "normalized_length": 14},
+      {"rank": 10, "raw_index": 10, "original": "MINDORDERCHAOS", "plaintext": "MINDORDERCHAOS", "normalized_length": 14}
+    ]}
+  ],
+  "length_stats": [
+    {"length": 14, "reader_plaintext_count": 7, "gordon_plaintext_count": 10, "generated_reader_ciphertext_count": 28, "same_length_pairings": 280, "impossible_pairings_skipped": 133, "viable_pairings": 147, "unmatched_reader_length": false, "unmatched_gordon_length": false}
+  ],
+  "reader_candidates": [
+    {"reader_rank": 1, "reader_plaintext_rank": 1, "reader_generated_rank": 1, "start_ring_rank": 1, "plugboard_rank": 1, "normalized_length": 14, "reader_plaintext_original": "MOMENTHIDDEATH", "reader_plaintext": "MOMENTHIDDEATH", "start": "GJM", "rings": "MMM", "active_pairs": "PE AF GR", "ciphertext": "LHAUPWJTGOPLNJ", "grouped": "LHAUP WJTGO PLNJ"},
+    {"reader_rank": 2, "reader_plaintext_rank": 1, "reader_generated_rank": 2, "start_ring_rank": 1, "plugboard_rank": 2, "normalized_length": 14, "reader_plaintext_original": "MOMENTHIDDEATH", "reader_plaintext": "MOMENTHIDDEATH", "start": "GJM", "rings": "MMM", "active_pairs": "PE AF GR UT", "ciphertext": "LHATPXJUGOPLLJ", "grouped": "LHATP XJUGO PLLJ"},
+    {"reader_rank": 3, "reader_plaintext_rank": 1, "reader_generated_rank": 3, "start_ring_rank": 1, "plugboard_rank": 3, "normalized_length": 14, "reader_plaintext_original": "MOMENTHIDDEATH", "reader_plaintext": "MOMENTHIDDEATH", "start": "GJM", "rings": "MMM", "active_pairs": "PE AF", "ciphertext": "LHAUPWJTROPLNJ", "grouped": "LHAUP WJTRO PLNJ"},
+    {"reader_rank": 4, "reader_plaintext_rank": 1, "reader_generated_rank": 4, "start_ring_rank": 1, "plugboard_rank": 4, "normalized_length": 14, "reader_plaintext_original": "MOMENTHIDDEATH", "reader_plaintext": "MOMENTHIDDEATH", "start": "GJM", "rings": "MMM", "active_pairs": "PE", "ciphertext": "LHFUPWJTROPMNJ", "grouped": "LHFUP WJTRO PMNJ"},
+    {"reader_rank": 5, "reader_plaintext_rank": 2, "reader_generated_rank": 1, "start_ring_rank": 1, "plugboard_rank": 1, "normalized_length": 14, "reader_plaintext_original": "THEDAYHIDDEATH", "reader_plaintext": "THEDAYHIDDEATH", "start": "GJM", "rings": "MMM", "active_pairs": "PE AF GR", "ciphertext": "BODZQMJTGOPLNJ", "grouped": "BODZQ MJTGO PLNJ"},
+    {"reader_rank": 6, "reader_plaintext_rank": 2, "reader_generated_rank": 2, "start_ring_rank": 1, "plugboard_rank": 2, "normalized_length": 14, "reader_plaintext_original": "THEDAYHIDDEATH", "reader_plaintext": "THEDAYHIDDEATH", "start": "GJM", "rings": "MMM", "active_pairs": "PE AF GR UT", "ciphertext": "GODZQMJUGOPLLJ", "grouped": "GODZQ MJUGO PLLJ"},
+    {"reader_rank": 7, "reader_plaintext_rank": 2, "reader_generated_rank": 3, "start_ring_rank": 1, "plugboard_rank": 3, "normalized_length": 14, "reader_plaintext_original": "THEDAYHIDDEATH", "reader_plaintext": "THEDAYHIDDEATH", "start": "GJM", "rings": "MMM", "active_pairs": "PE AF", "ciphertext": "BODZQMJTROPLNJ", "grouped": "BODZQ MJTRO PLNJ"},
+    {"reader_rank": 8, "reader_plaintext_rank": 2, "reader_generated_rank": 4, "start_ring_rank": 1, "plugboard_rank": 4, "normalized_length": 14, "reader_plaintext_original": "THEDAYHIDDEATH", "reader_plaintext": "THEDAYHIDDEATH", "start": "GJM", "rings": "MMM", "active_pairs": "PE", "ciphertext": "BODZOMJTROPMNJ", "grouped": "BODZO MJTRO PMNJ"},
+    {"reader_rank": 9, "reader_plaintext_rank": 3, "reader_generated_rank": 1, "start_ring_rank": 1, "plugboard_rank": 1, "normalized_length": 14, "reader_plaintext_original": "SECRETLOOPDEAD", "reader_plaintext": "SECRETLOOPDEAD", "start": "GJM", "rings": "MMM", "active_pairs": "PE AF GR", "ciphertext": "OPHQZWTYFIFKIR", "grouped": "OPHQZ WTYFI FKIR"},
+    {"reader_rank": 10, "reader_plaintext_rank": 3, "reader_generated_rank": 2, "start_ring_rank": 1, "plugboard_rank": 2, "normalized_length": 14, "reader_plaintext_original": "SECRETLOOPDEAD", "reader_plaintext": "SECRETLOOPDEAD", "start": "GJM", "rings": "MMM", "active_pairs": "PE AF GR UT", "ciphertext": "OPHQZXUYFIFKIR", "grouped": "OPHQZ XUYFI FKIR"},
+    {"reader_rank": 11, "reader_plaintext_rank": 3, "reader_generated_rank": 3, "start_ring_rank": 1, "plugboard_rank": 3, "normalized_length": 14, "reader_plaintext_original": "SECRETLOOPDEAD", "reader_plaintext": "SECRETLOOPDEAD", "start": "GJM", "rings": "MMM", "active_pairs": "PE AF", "ciphertext": "OPHHZWTYFIFKIG", "grouped": "OPHHZ WTYFI FKIG"},
+    {"reader_rank": 12, "reader_plaintext_rank": 3, "reader_generated_rank": 4, "start_ring_rank": 1, "plugboard_rank": 4, "normalized_length": 14, "reader_plaintext_original": "SECRETLOOPDEAD", "reader_plaintext": "SECRETLOOPDEAD", "start": "GJM", "rings": "MMM", "active_pairs": "PE", "ciphertext": "OPHHZWTYAIAKEG", "grouped": "OPHHZ WTYAI AKEG"},
+    {"reader_rank": 13, "reader_plaintext_rank": 4, "reader_generated_rank": 1, "start_ring_rank": 1, "plugboard_rank": 1, "normalized_length": 14, "reader_plaintext_original": "DEATHWASERASED", "reader_plaintext": "DEATHWASERASED", "start": "GJM", "rings": "MMM", "active_pairs": "PE AF GR", "ciphertext": "WPMBGTQXSCKRFR", "grouped": "WPMBG TQXSC KRFR"},
+    {"reader_rank": 14, "reader_plaintext_rank": 4, "reader_generated_rank": 2, "start_ring_rank": 1, "plugboard_rank": 2, "normalized_length": 14, "reader_plaintext_original": "DEATHWASERASED", "reader_plaintext": "DEATHWASERASED", "start": "GJM", "rings": "MMM", "active_pairs": "PE AF GR UT", "ciphertext": "WPMEGUQXSCKRFR", "grouped": "WPMEG UQXSC KRFR"},
+    {"reader_rank": 15, "reader_plaintext_rank": 4, "reader_generated_rank": 3, "start_ring_rank": 1, "plugboard_rank": 3, "normalized_length": 14, "reader_plaintext_original": "DEATHWASERASED", "reader_plaintext": "DEATHWASERASED", "start": "GJM", "rings": "MMM", "active_pairs": "PE AF", "ciphertext": "WPMBRTQXSHKGFG", "grouped": "WPMBR TQXSH KGFG"},
+    {"reader_rank": 16, "reader_plaintext_rank": 4, "reader_generated_rank": 4, "start_ring_rank": 1, "plugboard_rank": 4, "normalized_length": 14, "reader_plaintext_original": "DEATHWASERASED", "reader_plaintext": "DEATHWASERASED", "start": "GJM", "rings": "MMM", "active_pairs": "PE", "ciphertext": "WPOBRTGXSHDGAG", "grouped": "WPOBR TGXSH DGAG"},
+    {"reader_rank": 17, "reader_plaintext_rank": 5, "reader_generated_rank": 1, "start_ring_rank": 1, "plugboard_rank": 1, "normalized_length": 14, "reader_plaintext_original": "DEATHREWRITTEN", "reader_plaintext": "DEATHREWRITTEN", "start": "GJM", "rings": "MMM", "active_pairs": "PE AF GR", "ciphertext": "WPMBGPXHQPJGFC", "grouped": "WPMBG PXHQP JGFC"},
+    {"reader_rank": 18, "reader_plaintext_rank": 5, "reader_generated_rank": 2, "start_ring_rank": 1, "plugboard_rank": 2, "normalized_length": 14, "reader_plaintext_original": "DEATHREWRITTEN", "reader_plaintext": "DEATHREWRITTEN", "start": "GJM", "rings": "MMM", "active_pairs": "PE AF GR UT", "ciphertext": "WPMEGPXHQPNWFC", "grouped": "WPMEG PXHQP NWFC"},
+    {"reader_rank": 19, "reader_plaintext_rank": 5, "reader_generated_rank": 3, "start_ring_rank": 1, "plugboard_rank": 3, "normalized_length": 14, "reader_plaintext_original": "DEATHREWRITTEN", "reader_plaintext": "DEATHREWRITTEN", "start": "GJM", "rings": "MMM", "active_pairs": "PE AF", "ciphertext": "WPMBRSXHDPJRFC", "grouped": "WPMBR SXHDP JRFC"},
+    {"reader_rank": 20, "reader_plaintext_rank": 5, "reader_generated_rank": 4, "start_ring_rank": 1, "plugboard_rank": 4, "normalized_length": 14, "reader_plaintext_original": "DEATHREWRITTEN", "reader_plaintext": "DEATHREWRITTEN", "start": "GJM", "rings": "MMM", "active_pairs": "PE", "ciphertext": "WPOBRSXHDPJRAC", "grouped": "WPOBR SXHDP JRAC"},
+    {"reader_rank": 21, "reader_plaintext_rank": 6, "reader_generated_rank": 1, "start_ring_rank": 1, "plugboard_rank": 1, "normalized_length": 14, "reader_plaintext_original": "ONEYEARINWEEKS", "reader_plaintext": "ONEYEARINWEEKS", "start": "GJM", "rings": "MMM", "active_pairs": "PE AF GR", "ciphertext": "SCDCZCFTXSPKZK", "grouped": "SCDCZ CFTXS PKZK"},
+    {"reader_rank": 22, "reader_plaintext_rank": 6, "reader_generated_rank": 2, "start_ring_rank": 1, "plugboard_rank": 2, "normalized_length": 14, "reader_plaintext_original": "ONEYEARINWEEKS", "reader_plaintext": "ONEYEARINWEEKS", "start": "GJM", "rings": "MMM", "active_pairs": "PE AF GR UT", "ciphertext": "SCDCZCFUXSPKZK", "grouped": "SCDCZ CFUXS PKZK"},
+    {"reader_rank": 23, "reader_plaintext_rank": 6, "reader_generated_rank": 3, "start_ring_rank": 1, "plugboard_rank": 3, "normalized_length": 14, "reader_plaintext_original": "ONEYEARINWEEKS", "reader_plaintext": "ONEYEARINWEEKS", "start": "GJM", "rings": "MMM", "active_pairs": "PE AF", "ciphertext": "SCDCZCKTXSPKZK", "grouped": "SCDCZ CKTXS PKZK"},
+    {"reader_rank": 24, "reader_plaintext_rank": 6, "reader_generated_rank": 4, "start_ring_rank": 1, "plugboard_rank": 4, "normalized_length": 14, "reader_plaintext_original": "ONEYEARINWEEKS", "reader_plaintext": "ONEYEARINWEEKS", "start": "GJM", "rings": "MMM", "active_pairs": "PE", "ciphertext": "SCDCZKKTXSPKZK", "grouped": "SCDCZ KKTXS PKZK"},
+    {"reader_rank": 25, "reader_plaintext_rank": 7, "reader_generated_rank": 1, "start_ring_rank": 1, "plugboard_rank": 1, "normalized_length": 14, "reader_plaintext_original": "HEWASDEADFIRST", "reader_plaintext": "HEWASDEADFIRST", "start": "GJM", "rings": "MMM", "active_pairs": "PE AF GR", "ciphertext": "EPYVRJXEGUHSHB", "grouped": "EPYVR JXEGU HSHB"},
+    {"reader_rank": 26, "reader_plaintext_rank": 7, "reader_generated_rank": 2, "start_ring_rank": 1, "plugboard_rank": 2, "normalized_length": 14, "reader_plaintext_original": "HEWASDEADFIRST", "reader_plaintext": "HEWASDEADFIRST", "start": "GJM", "rings": "MMM", "active_pairs": "PE AF GR UT", "ciphertext": "EPYVRJXEGTHSHP", "grouped": "EPYVR JXEGT HSHP"},
+    {"reader_rank": 27, "reader_plaintext_rank": 7, "reader_generated_rank": 3, "start_ring_rank": 1, "plugboard_rank": 3, "normalized_length": 14, "reader_plaintext_original": "HEWASDEADFIRST", "reader_plaintext": "HEWASDEADFIRST", "start": "GJM", "rings": "MMM", "active_pairs": "PE AF", "ciphertext": "EPYVGJXERUHTHB", "grouped": "EPYVG JXERU HTHB"},
+    {"reader_rank": 28, "reader_plaintext_rank": 7, "reader_generated_rank": 4, "start_ring_rank": 1, "plugboard_rank": 4, "normalized_length": 14, "reader_plaintext_original": "HEWASDEADFIRST", "reader_plaintext": "HEWASDEADFIRST", "start": "GJM", "rings": "MMM", "active_pairs": "PE", "ciphertext": "EPYXGJXURQHTHB", "grouped": "EPYXG JXURQ HTHB"}
+  ],
+  "gordon_targets": [
+    {"rank": 1, "original": "REALITYCONFLUX", "plaintext": "REALITYCONFLUX", "normalized_length": 14},
+    {"rank": 2, "original": "LUXNOXNEEDMIND", "plaintext": "LUXNOXNEEDMIND", "normalized_length": 14},
+    {"rank": 3, "original": "HELIOISCONFLUX", "plaintext": "HELIOISCONFLUX", "normalized_length": 14},
+    {"rank": 4, "original": "TIMEISACONFLUX", "plaintext": "TIMEISACONFLUX", "normalized_length": 14},
+    {"rank": 5, "original": "ANIMUSANCHORLN", "plaintext": "ANIMUSANCHORLN", "normalized_length": 14},
+    {"rank": 6, "original": "LUXNOXWITHMIND", "plaintext": "LUXNOXWITHMIND", "normalized_length": 14},
+    {"rank": 7, "original": "ORDERCHAOSMIND", "plaintext": "ORDERCHAOSMIND", "normalized_length": 14},
+    {"rank": 8, "original": "CONFLUXUSESLNA", "plaintext": "CONFLUXUSESLNA", "normalized_length": 14},
+    {"rank": 9, "original": "ANIMUSISTHEKEY", "plaintext": "ANIMUSISTHEKEY", "normalized_length": 14},
+    {"rank": 10, "original": "MINDORDERCHAOS", "plaintext": "MINDORDERCHAOS", "normalized_length": 14}
+  ]
+}

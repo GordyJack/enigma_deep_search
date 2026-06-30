@@ -15,6 +15,9 @@ param(
     [string]$SummaryPath = ".\phrase_pair_first_summary.json",
     [string]$GeneratedTargetsPath = ".\story_clue_generated_14_only_latest.json",
     [string]$ValidationReportPath = ".\mixed_length_validation_latest.json",
+    [ValidateSet("full", "strict")]
+    [string]$ReaderMode = "full",
+    [switch]$StrictReader,
     [switch]$SkipValidation,
     [switch]$SkipGenerate,
     [switch]$GpuCoreCache,
@@ -23,6 +26,7 @@ param(
 
 $ErrorActionPreference = "Stop"
 $useGpuCoreCache = -not [bool]$NoGpuCoreCache
+$effectiveReaderMode = if ($StrictReader) { "strict" } else { $ReaderMode }
 
 function Read-JsonFile {
     param([Parameter(Mandatory=$true)] [string]$Path)
@@ -109,7 +113,7 @@ if (-not $SkipValidation) {
 }
 
 if (-not $SkipGenerate) {
-    & $cpuExe --generate-mixed-reader-candidates --reader-plaintexts-file $readerPath --gordon-plaintexts-file $gordonPath --output $GeneratedTargetsPath
+    & $cpuExe --generate-mixed-reader-candidates --reader-mode $effectiveReaderMode --reader-plaintexts-file $readerPath --gordon-plaintexts-file $gordonPath --output $GeneratedTargetsPath
     if ($LASTEXITCODE -ne 0) {
         throw "mixed reader candidate generation failed"
     }
@@ -118,6 +122,33 @@ if (-not $SkipGenerate) {
 $generated = Read-JsonFile -Path $GeneratedTargetsPath
 $readerCandidates = @($generated.reader_candidates)
 $gordonTargets = @($generated.gordon_targets)
+if ($effectiveReaderMode -eq "strict") {
+    if ($generated.reader_mode -ne "strict") {
+        throw "strict reader mode requested, but generated target file reports reader_mode=$($generated.reader_mode)"
+    }
+    $readerAcceptedCount = [int]$generated.reader_accepted_count
+    $expectedStrictCandidates = $readerAcceptedCount * 4
+    if ([int]$generated.reader_generated_candidate_count -ne $expectedStrictCandidates) {
+        throw "strict reader mode expected $expectedStrictCandidates reader candidates, got $($generated.reader_generated_candidate_count)"
+    }
+    foreach ($candidate in $readerCandidates) {
+        if ($candidate.start -ne "GJM" -or $candidate.rings -ne "MMM") {
+            throw "strict reader candidate $($candidate.reader_rank) used start/rings $($candidate.start)/$($candidate.rings), expected GJM/MMM"
+        }
+        if (@("PE AF GR", "PE AF GR UT", "PE AF", "PE") -notcontains $candidate.active_pairs) {
+            throw "strict reader candidate $($candidate.reader_rank) used unexpected plugboard option $($candidate.active_pairs)"
+        }
+    }
+    foreach ($readerGroup in @($readerCandidates | Group-Object reader_plaintext_rank)) {
+        $labels = @($readerGroup.Group | Sort-Object reader_generated_rank | ForEach-Object { $_.active_pairs })
+        $expected = @("PE AF GR", "PE AF GR UT", "PE AF", "PE")
+        for ($i = 0; $i -lt $expected.Count; $i++) {
+            if ($labels[$i] -ne $expected[$i]) {
+                throw "strict reader plaintext rank $($readerGroup.Name) plugboard order mismatch: $($labels -join ', ')"
+            }
+        }
+    }
+}
 
 $viableTargets = @()
 $sameLengthTargets = @()
@@ -345,6 +376,7 @@ $summaryObject = [pscustomobject]@{
     chunk_classes = $ChunkClasses
     max_chunks_per_target = $MaxChunksPerTarget
     max_candidate_attempts_per_pair = $MaxCandidateAttemptsPerPair
+    reader_mode = $effectiveReaderMode
     gpu_core_cache = [bool]$useGpuCoreCache
     gpu_survivor_cap = $GpuSurvivorCap
     total_phrase_pairs = $pairSummaries.Count
