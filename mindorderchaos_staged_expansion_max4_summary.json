@@ -1,0 +1,635 @@
+﻿{
+    "mode":  "mindorderchaos_staged_literal_expansion",
+    "started":  "2026-06-29T22:15:47.2415891-05:00",
+    "finished":  "2026-06-29T22:17:30.1588227-05:00",
+    "wall_elapsed_seconds":  102.9156981,
+    "target_gordon_match_plaintext":  "MINDORDERCHAOS",
+    "display_gordon_text":  "MIND+ORDER+CHAOS=REALITY",
+    "full_gordon_plaintext":  "MINDORDERCHAOSREALITY",
+    "reader_settings_locked":  {
+                                   "reflector":  "B",
+                                   "rotors_left_to_right":  "III I IV",
+                                   "start_window":  "GJM",
+                                   "rings":  "MMM",
+                                   "plugboard_option_order":  [
+                                                                  "PE AF GR",
+                                                                  "PE AF GR UT",
+                                                                  "PE AF",
+                                                                  "PE"
+                                                              ]
+                               },
+    "gordon_search_assumptions":  {
+                                      "tier":  2,
+                                      "reflectors":  "B C",
+                                      "rotor_pool":  "I II III IV V",
+                                      "rotor_order_count":  60,
+                                      "max_gordon_plugboard_pairs":  4,
+                                      "behavior_classes_per_target":  1425765120,
+                                      "behavior_direct":  true,
+                                      "gpu_core_cache":  true
+                                  },
+    "stop_threshold_per_reader_phrase":  20,
+    "max_gordon_plugboard_pairs":  4,
+    "max_results_per_option":  200,
+    "gpu_survivor_cap":  1000000,
+    "cpu_verify_survivor_limit":  50000,
+    "balloon_result_threshold":  200,
+    "total_literal_gordon_settings_reported":  0,
+    "total_gpu_behavior_checks":  25663772160,
+    "total_gpu_wall_seconds":  102.751144,
+    "total_cpu_verify_wall_seconds":  0,
+    "aggregate_gpu_behavior_checks_per_second":  249766291.26387149,
+    "reader_phrase_summaries":  [
+                                    {
+                                        "reader_plaintext":  "MOMENTHIDDEATH",
+                                        "gordon_match_plaintext":  "MINDORDERCHAOS",
+                                        "display_gordon_text":  "MIND+ORDER+CHAOS=REALITY",
+                                        "full_gordon_plaintext":  "MINDORDERCHAOSREALITY",
+                                        "cumulative_literal_gordon_settings":  0,
+                                        "stopped_after_threshold":  false,
+                                        "stopped_after_option_rank":  null,
+                                        "incomplete":  false,
+                                        "ballooned":  false,
+                                        "option_results":  [
+                                                               {
+                                                                   "option_rank":  1,
+                                                                   "reader_active_pairs":  "PE AF GR",
+                                                                   "reader_ciphertext":  "LHAUPWJTGOPLNJ",
+                                                                   "target_id":  10,
+                                                                   "skipped":  false,
+                                                                   "skip_reason":  null,
+                                                                   "gpu_survivors":  0,
+                                                                   "gpu_survivors_stored":  0,
+                                                                   "gpu_elapsed_seconds":  5.26345,
+                                                                   "gpu_states_per_second":  270881000,
+                                                                   "cpu_verify_wall_seconds":  0,
+                                                                   "cpu_verified_literal_gordon_settings":  0,
+                                                                   "cumulative_after_option":  0,
+                                                                   "ballooned":  false,
+                                                                   "incomplete":  false,
+                                                                   "incomplete_reason":  null,
+                                                                   "cpu_output":  null,
+                                                                   "survivor_path":  null,
+                                                                   "literal_settings":  [
+
+                                                                                        ]
+                                                               },
+                                                               {
+                                                                   "option_rank":  2,
+                                                                   "reader_active_pairs":  "PE AF GR UT",
+                                                                   "reader_ciphertext":  "LHATPXJUGOPLLJ",
+                                                                   "target_id":  20,
+                                                                   "skipped":  false,
+                                                                   "skip_reason":  null,
+                                                                   "gpu_survivors":  0,
+                                                                   "gpu_survivors_stored":  0,
+                                                                   "gpu_elapsed_seconds":  5.31439,
+                                                                   "gpu_states_per_second":  268284000,
+                                                                   "cpu_verify_wall_seconds":  0,
+                                                                   "cpu_verified_literal_gordon_settings":  0,
+                                                                   "cumulative_after_option":  0,
+                                                                   "ballooned":  false,
+                                                                   "incomplete":  false,
+                                                                   "incomplete_reason":  null,
+                                                                   "cpu_output":  null,
+                                                                   "survivor_path":  null,
+                                                                   "literal_settings":  [
+
+                                                                                        ]
+                                                               },
+                                                               {
+                                                                   "option_rank":  3,
+                                                                   "reader_active_pairs":  "PE AF",
+                                                                   "reader_ciphertext":  "LHAUPWJTROPLNJ",
+                                                                   "target_id":  30,
+                                                                   "skipped":  true,
+                                                                   "skip_reason":  "same_position_impossible",
+                                                                   "gpu_survivors":  0,
+                                                                   "cpu_verified_literal_gordon_settings":  0,
+                                                                   "cumulative_after_option":  0,
+                                                                   "ballooned":  false,
+                                                                   "incomplete":  false,
+                                                                   "literal_settings":  [
+
+                                                                                        ]
+                                                               },
+                                                               {
+                                                                   "option_rank":  4,
+                                                                   "reader_active_pairs":  "PE",
+                                                                   "reader_ciphertext":  "LHFUPWJTROPMNJ",
+                                                                   "target_id":  40,
+                                                                   "skipped":  true,
+                                                                   "skip_reason":  "same_position_impossible",
+                                                                   "gpu_survivors":  0,
+                                                                   "cpu_verified_literal_gordon_settings":  0,
+                                                                   "cumulative_after_option":  0,
+                                                                   "ballooned":  false,
+                                                                   "incomplete":  false,
+                                                                   "literal_settings":  [
+
+                                                                                        ]
+                                                               }
+                                                           ]
+                                    },
+                                    {
+                                        "reader_plaintext":  "THEDAYHIDDEATH",
+                                        "gordon_match_plaintext":  "MINDORDERCHAOS",
+                                        "display_gordon_text":  "MIND+ORDER+CHAOS=REALITY",
+                                        "full_gordon_plaintext":  "MINDORDERCHAOSREALITY",
+                                        "cumulative_literal_gordon_settings":  0,
+                                        "stopped_after_threshold":  false,
+                                        "stopped_after_option_rank":  null,
+                                        "incomplete":  false,
+                                        "ballooned":  false,
+                                        "option_results":  [
+                                                               {
+                                                                   "option_rank":  1,
+                                                                   "reader_active_pairs":  "PE AF GR",
+                                                                   "reader_ciphertext":  "BODZQMJTGOPLNJ",
+                                                                   "target_id":  50,
+                                                                   "skipped":  false,
+                                                                   "skip_reason":  null,
+                                                                   "gpu_survivors":  0,
+                                                                   "gpu_survivors_stored":  0,
+                                                                   "gpu_elapsed_seconds":  5.08301,
+                                                                   "gpu_states_per_second":  280496000,
+                                                                   "cpu_verify_wall_seconds":  0,
+                                                                   "cpu_verified_literal_gordon_settings":  0,
+                                                                   "cumulative_after_option":  0,
+                                                                   "ballooned":  false,
+                                                                   "incomplete":  false,
+                                                                   "incomplete_reason":  null,
+                                                                   "cpu_output":  null,
+                                                                   "survivor_path":  null,
+                                                                   "literal_settings":  [
+
+                                                                                        ]
+                                                               },
+                                                               {
+                                                                   "option_rank":  2,
+                                                                   "reader_active_pairs":  "PE AF GR UT",
+                                                                   "reader_ciphertext":  "GODZQMJUGOPLLJ",
+                                                                   "target_id":  60,
+                                                                   "skipped":  false,
+                                                                   "skip_reason":  null,
+                                                                   "gpu_survivors":  0,
+                                                                   "gpu_survivors_stored":  0,
+                                                                   "gpu_elapsed_seconds":  4.92838,
+                                                                   "gpu_states_per_second":  289297000,
+                                                                   "cpu_verify_wall_seconds":  0,
+                                                                   "cpu_verified_literal_gordon_settings":  0,
+                                                                   "cumulative_after_option":  0,
+                                                                   "ballooned":  false,
+                                                                   "incomplete":  false,
+                                                                   "incomplete_reason":  null,
+                                                                   "cpu_output":  null,
+                                                                   "survivor_path":  null,
+                                                                   "literal_settings":  [
+
+                                                                                        ]
+                                                               },
+                                                               {
+                                                                   "option_rank":  3,
+                                                                   "reader_active_pairs":  "PE AF",
+                                                                   "reader_ciphertext":  "BODZQMJTROPLNJ",
+                                                                   "target_id":  70,
+                                                                   "skipped":  true,
+                                                                   "skip_reason":  "same_position_impossible",
+                                                                   "gpu_survivors":  0,
+                                                                   "cpu_verified_literal_gordon_settings":  0,
+                                                                   "cumulative_after_option":  0,
+                                                                   "ballooned":  false,
+                                                                   "incomplete":  false,
+                                                                   "literal_settings":  [
+
+                                                                                        ]
+                                                               },
+                                                               {
+                                                                   "option_rank":  4,
+                                                                   "reader_active_pairs":  "PE",
+                                                                   "reader_ciphertext":  "BODZOMJTROPMNJ",
+                                                                   "target_id":  80,
+                                                                   "skipped":  true,
+                                                                   "skip_reason":  "same_position_impossible",
+                                                                   "gpu_survivors":  0,
+                                                                   "cpu_verified_literal_gordon_settings":  0,
+                                                                   "cumulative_after_option":  0,
+                                                                   "ballooned":  false,
+                                                                   "incomplete":  false,
+                                                                   "literal_settings":  [
+
+                                                                                        ]
+                                                               }
+                                                           ]
+                                    },
+                                    {
+                                        "reader_plaintext":  "SECRETLOOPDEAD",
+                                        "gordon_match_plaintext":  "MINDORDERCHAOS",
+                                        "display_gordon_text":  "MIND+ORDER+CHAOS=REALITY",
+                                        "full_gordon_plaintext":  "MINDORDERCHAOSREALITY",
+                                        "cumulative_literal_gordon_settings":  0,
+                                        "stopped_after_threshold":  false,
+                                        "stopped_after_option_rank":  null,
+                                        "incomplete":  false,
+                                        "ballooned":  false,
+                                        "option_results":  [
+                                                               {
+                                                                   "option_rank":  1,
+                                                                   "reader_active_pairs":  "PE AF GR",
+                                                                   "reader_ciphertext":  "OPHQZWTYFIFKIR",
+                                                                   "target_id":  90,
+                                                                   "skipped":  false,
+                                                                   "skip_reason":  null,
+                                                                   "gpu_survivors":  0,
+                                                                   "gpu_survivors_stored":  0,
+                                                                   "gpu_elapsed_seconds":  5.37321,
+                                                                   "gpu_states_per_second":  265347000,
+                                                                   "cpu_verify_wall_seconds":  0,
+                                                                   "cpu_verified_literal_gordon_settings":  0,
+                                                                   "cumulative_after_option":  0,
+                                                                   "ballooned":  false,
+                                                                   "incomplete":  false,
+                                                                   "incomplete_reason":  null,
+                                                                   "cpu_output":  null,
+                                                                   "survivor_path":  null,
+                                                                   "literal_settings":  [
+
+                                                                                        ]
+                                                               },
+                                                               {
+                                                                   "option_rank":  2,
+                                                                   "reader_active_pairs":  "PE AF GR UT",
+                                                                   "reader_ciphertext":  "OPHQZXUYFIFKIR",
+                                                                   "target_id":  100,
+                                                                   "skipped":  false,
+                                                                   "skip_reason":  null,
+                                                                   "gpu_survivors":  0,
+                                                                   "gpu_survivors_stored":  0,
+                                                                   "gpu_elapsed_seconds":  5.38306,
+                                                                   "gpu_states_per_second":  264862000,
+                                                                   "cpu_verify_wall_seconds":  0,
+                                                                   "cpu_verified_literal_gordon_settings":  0,
+                                                                   "cumulative_after_option":  0,
+                                                                   "ballooned":  false,
+                                                                   "incomplete":  false,
+                                                                   "incomplete_reason":  null,
+                                                                   "cpu_output":  null,
+                                                                   "survivor_path":  null,
+                                                                   "literal_settings":  [
+
+                                                                                        ]
+                                                               },
+                                                               {
+                                                                   "option_rank":  3,
+                                                                   "reader_active_pairs":  "PE AF",
+                                                                   "reader_ciphertext":  "OPHHZWTYFIFKIG",
+                                                                   "target_id":  110,
+                                                                   "skipped":  false,
+                                                                   "skip_reason":  null,
+                                                                   "gpu_survivors":  0,
+                                                                   "gpu_survivors_stored":  0,
+                                                                   "gpu_elapsed_seconds":  5.28567,
+                                                                   "gpu_states_per_second":  269742000,
+                                                                   "cpu_verify_wall_seconds":  0,
+                                                                   "cpu_verified_literal_gordon_settings":  0,
+                                                                   "cumulative_after_option":  0,
+                                                                   "ballooned":  false,
+                                                                   "incomplete":  false,
+                                                                   "incomplete_reason":  null,
+                                                                   "cpu_output":  null,
+                                                                   "survivor_path":  null,
+                                                                   "literal_settings":  [
+
+                                                                                        ]
+                                                               },
+                                                               {
+                                                                   "option_rank":  4,
+                                                                   "reader_active_pairs":  "PE",
+                                                                   "reader_ciphertext":  "OPHHZWTYAIAKEG",
+                                                                   "target_id":  120,
+                                                                   "skipped":  false,
+                                                                   "skip_reason":  null,
+                                                                   "gpu_survivors":  0,
+                                                                   "gpu_survivors_stored":  0,
+                                                                   "gpu_elapsed_seconds":  5.33498,
+                                                                   "gpu_states_per_second":  267248000,
+                                                                   "cpu_verify_wall_seconds":  0,
+                                                                   "cpu_verified_literal_gordon_settings":  0,
+                                                                   "cumulative_after_option":  0,
+                                                                   "ballooned":  false,
+                                                                   "incomplete":  false,
+                                                                   "incomplete_reason":  null,
+                                                                   "cpu_output":  null,
+                                                                   "survivor_path":  null,
+                                                                   "literal_settings":  [
+
+                                                                                        ]
+                                                               }
+                                                           ]
+                                    },
+                                    {
+                                        "reader_plaintext":  "DEATHWASERASED",
+                                        "gordon_match_plaintext":  "MINDORDERCHAOS",
+                                        "display_gordon_text":  "MIND+ORDER+CHAOS=REALITY",
+                                        "full_gordon_plaintext":  "MINDORDERCHAOSREALITY",
+                                        "cumulative_literal_gordon_settings":  0,
+                                        "stopped_after_threshold":  false,
+                                        "stopped_after_option_rank":  null,
+                                        "incomplete":  false,
+                                        "ballooned":  false,
+                                        "option_results":  [
+                                                               {
+                                                                   "option_rank":  1,
+                                                                   "reader_active_pairs":  "PE AF GR",
+                                                                   "reader_ciphertext":  "WPMBGTQXSCKRFR",
+                                                                   "target_id":  130,
+                                                                   "skipped":  true,
+                                                                   "skip_reason":  "same_position_impossible",
+                                                                   "gpu_survivors":  0,
+                                                                   "cpu_verified_literal_gordon_settings":  0,
+                                                                   "cumulative_after_option":  0,
+                                                                   "ballooned":  false,
+                                                                   "incomplete":  false,
+                                                                   "literal_settings":  [
+
+                                                                                        ]
+                                                               },
+                                                               {
+                                                                   "option_rank":  2,
+                                                                   "reader_active_pairs":  "PE AF GR UT",
+                                                                   "reader_ciphertext":  "WPMEGUQXSCKRFR",
+                                                                   "target_id":  140,
+                                                                   "skipped":  true,
+                                                                   "skip_reason":  "same_position_impossible",
+                                                                   "gpu_survivors":  0,
+                                                                   "cpu_verified_literal_gordon_settings":  0,
+                                                                   "cumulative_after_option":  0,
+                                                                   "ballooned":  false,
+                                                                   "incomplete":  false,
+                                                                   "literal_settings":  [
+
+                                                                                        ]
+                                                               },
+                                                               {
+                                                                   "option_rank":  3,
+                                                                   "reader_active_pairs":  "PE AF",
+                                                                   "reader_ciphertext":  "WPMBRTQXSHKGFG",
+                                                                   "target_id":  150,
+                                                                   "skipped":  false,
+                                                                   "skip_reason":  null,
+                                                                   "gpu_survivors":  0,
+                                                                   "gpu_survivors_stored":  0,
+                                                                   "gpu_elapsed_seconds":  5.31004,
+                                                                   "gpu_states_per_second":  268504000,
+                                                                   "cpu_verify_wall_seconds":  0,
+                                                                   "cpu_verified_literal_gordon_settings":  0,
+                                                                   "cumulative_after_option":  0,
+                                                                   "ballooned":  false,
+                                                                   "incomplete":  false,
+                                                                   "incomplete_reason":  null,
+                                                                   "cpu_output":  null,
+                                                                   "survivor_path":  null,
+                                                                   "literal_settings":  [
+
+                                                                                        ]
+                                                               },
+                                                               {
+                                                                   "option_rank":  4,
+                                                                   "reader_active_pairs":  "PE",
+                                                                   "reader_ciphertext":  "WPOBRTGXSHDGAG",
+                                                                   "target_id":  160,
+                                                                   "skipped":  false,
+                                                                   "skip_reason":  null,
+                                                                   "gpu_survivors":  0,
+                                                                   "gpu_survivors_stored":  0,
+                                                                   "gpu_elapsed_seconds":  5.02814,
+                                                                   "gpu_states_per_second":  283557000,
+                                                                   "cpu_verify_wall_seconds":  0,
+                                                                   "cpu_verified_literal_gordon_settings":  0,
+                                                                   "cumulative_after_option":  0,
+                                                                   "ballooned":  false,
+                                                                   "incomplete":  false,
+                                                                   "incomplete_reason":  null,
+                                                                   "cpu_output":  null,
+                                                                   "survivor_path":  null,
+                                                                   "literal_settings":  [
+
+                                                                                        ]
+                                                               }
+                                                           ]
+                                    },
+                                    {
+                                        "reader_plaintext":  "DEATHREWRITTEN",
+                                        "gordon_match_plaintext":  "MINDORDERCHAOS",
+                                        "display_gordon_text":  "MIND+ORDER+CHAOS=REALITY",
+                                        "full_gordon_plaintext":  "MINDORDERCHAOSREALITY",
+                                        "cumulative_literal_gordon_settings":  0,
+                                        "stopped_after_threshold":  false,
+                                        "stopped_after_option_rank":  null,
+                                        "incomplete":  false,
+                                        "ballooned":  false,
+                                        "option_results":  [
+                                                               {
+                                                                   "option_rank":  1,
+                                                                   "reader_active_pairs":  "PE AF GR",
+                                                                   "reader_ciphertext":  "WPMBGPXHQPJGFC",
+                                                                   "target_id":  170,
+                                                                   "skipped":  false,
+                                                                   "skip_reason":  null,
+                                                                   "gpu_survivors":  0,
+                                                                   "gpu_survivors_stored":  0,
+                                                                   "gpu_elapsed_seconds":  5.2806,
+                                                                   "gpu_states_per_second":  270001000,
+                                                                   "cpu_verify_wall_seconds":  0,
+                                                                   "cpu_verified_literal_gordon_settings":  0,
+                                                                   "cumulative_after_option":  0,
+                                                                   "ballooned":  false,
+                                                                   "incomplete":  false,
+                                                                   "incomplete_reason":  null,
+                                                                   "cpu_output":  null,
+                                                                   "survivor_path":  null,
+                                                                   "literal_settings":  [
+
+                                                                                        ]
+                                                               },
+                                                               {
+                                                                   "option_rank":  2,
+                                                                   "reader_active_pairs":  "PE AF GR UT",
+                                                                   "reader_ciphertext":  "WPMEGPXHQPNWFC",
+                                                                   "target_id":  180,
+                                                                   "skipped":  false,
+                                                                   "skip_reason":  null,
+                                                                   "gpu_survivors":  0,
+                                                                   "gpu_survivors_stored":  0,
+                                                                   "gpu_elapsed_seconds":  5.12607,
+                                                                   "gpu_states_per_second":  278140000,
+                                                                   "cpu_verify_wall_seconds":  0,
+                                                                   "cpu_verified_literal_gordon_settings":  0,
+                                                                   "cumulative_after_option":  0,
+                                                                   "ballooned":  false,
+                                                                   "incomplete":  false,
+                                                                   "incomplete_reason":  null,
+                                                                   "cpu_output":  null,
+                                                                   "survivor_path":  null,
+                                                                   "literal_settings":  [
+
+                                                                                        ]
+                                                               },
+                                                               {
+                                                                   "option_rank":  3,
+                                                                   "reader_active_pairs":  "PE AF",
+                                                                   "reader_ciphertext":  "WPMBRSXHDPJRFC",
+                                                                   "target_id":  190,
+                                                                   "skipped":  false,
+                                                                   "skip_reason":  null,
+                                                                   "gpu_survivors":  0,
+                                                                   "gpu_survivors_stored":  0,
+                                                                   "gpu_elapsed_seconds":  4.85933,
+                                                                   "gpu_states_per_second":  293407000,
+                                                                   "cpu_verify_wall_seconds":  0,
+                                                                   "cpu_verified_literal_gordon_settings":  0,
+                                                                   "cumulative_after_option":  0,
+                                                                   "ballooned":  false,
+                                                                   "incomplete":  false,
+                                                                   "incomplete_reason":  null,
+                                                                   "cpu_output":  null,
+                                                                   "survivor_path":  null,
+                                                                   "literal_settings":  [
+
+                                                                                        ]
+                                                               },
+                                                               {
+                                                                   "option_rank":  4,
+                                                                   "reader_active_pairs":  "PE",
+                                                                   "reader_ciphertext":  "WPOBRSXHDPJRAC",
+                                                                   "target_id":  200,
+                                                                   "skipped":  false,
+                                                                   "skip_reason":  null,
+                                                                   "gpu_survivors":  0,
+                                                                   "gpu_survivors_stored":  0,
+                                                                   "gpu_elapsed_seconds":  4.81209,
+                                                                   "gpu_states_per_second":  296288000,
+                                                                   "cpu_verify_wall_seconds":  0,
+                                                                   "cpu_verified_literal_gordon_settings":  0,
+                                                                   "cumulative_after_option":  0,
+                                                                   "ballooned":  false,
+                                                                   "incomplete":  false,
+                                                                   "incomplete_reason":  null,
+                                                                   "cpu_output":  null,
+                                                                   "survivor_path":  null,
+                                                                   "literal_settings":  [
+
+                                                                                        ]
+                                                               }
+                                                           ]
+                                    },
+                                    {
+                                        "reader_plaintext":  "ONEYEARINWEEKS",
+                                        "gordon_match_plaintext":  "MINDORDERCHAOS",
+                                        "display_gordon_text":  "MIND+ORDER+CHAOS=REALITY",
+                                        "full_gordon_plaintext":  "MINDORDERCHAOSREALITY",
+                                        "cumulative_literal_gordon_settings":  0,
+                                        "stopped_after_threshold":  false,
+                                        "stopped_after_option_rank":  null,
+                                        "incomplete":  false,
+                                        "ballooned":  false,
+                                        "option_results":  [
+                                                               {
+                                                                   "option_rank":  1,
+                                                                   "reader_active_pairs":  "PE AF GR",
+                                                                   "reader_ciphertext":  "SCDCZCFTXSPKZK",
+                                                                   "target_id":  210,
+                                                                   "skipped":  false,
+                                                                   "skip_reason":  null,
+                                                                   "gpu_survivors":  0,
+                                                                   "gpu_survivors_stored":  0,
+                                                                   "gpu_elapsed_seconds":  4.57138,
+                                                                   "gpu_states_per_second":  311890000,
+                                                                   "cpu_verify_wall_seconds":  0,
+                                                                   "cpu_verified_literal_gordon_settings":  0,
+                                                                   "cumulative_after_option":  0,
+                                                                   "ballooned":  false,
+                                                                   "incomplete":  false,
+                                                                   "incomplete_reason":  null,
+                                                                   "cpu_output":  null,
+                                                                   "survivor_path":  null,
+                                                                   "literal_settings":  [
+
+                                                                                        ]
+                                                               },
+                                                               {
+                                                                   "option_rank":  2,
+                                                                   "reader_active_pairs":  "PE AF GR UT",
+                                                                   "reader_ciphertext":  "SCDCZCFUXSPKZK",
+                                                                   "target_id":  220,
+                                                                   "skipped":  false,
+                                                                   "skip_reason":  null,
+                                                                   "gpu_survivors":  0,
+                                                                   "gpu_survivors_stored":  0,
+                                                                   "gpu_elapsed_seconds":  4.57612,
+                                                                   "gpu_states_per_second":  311566000,
+                                                                   "cpu_verify_wall_seconds":  0,
+                                                                   "cpu_verified_literal_gordon_settings":  0,
+                                                                   "cumulative_after_option":  0,
+                                                                   "ballooned":  false,
+                                                                   "incomplete":  false,
+                                                                   "incomplete_reason":  null,
+                                                                   "cpu_output":  null,
+                                                                   "survivor_path":  null,
+                                                                   "literal_settings":  [
+
+                                                                                        ]
+                                                               },
+                                                               {
+                                                                   "option_rank":  3,
+                                                                   "reader_active_pairs":  "PE AF",
+                                                                   "reader_ciphertext":  "SCDCZCKTXSPKZK",
+                                                                   "target_id":  230,
+                                                                   "skipped":  false,
+                                                                   "skip_reason":  null,
+                                                                   "gpu_survivors":  0,
+                                                                   "gpu_survivors_stored":  0,
+                                                                   "gpu_elapsed_seconds":  4.5094,
+                                                                   "gpu_states_per_second":  316177000,
+                                                                   "cpu_verify_wall_seconds":  0,
+                                                                   "cpu_verified_literal_gordon_settings":  0,
+                                                                   "cumulative_after_option":  0,
+                                                                   "ballooned":  false,
+                                                                   "incomplete":  false,
+                                                                   "incomplete_reason":  null,
+                                                                   "cpu_output":  null,
+                                                                   "survivor_path":  null,
+                                                                   "literal_settings":  [
+
+                                                                                        ]
+                                                               },
+                                                               {
+                                                                   "option_rank":  4,
+                                                                   "reader_active_pairs":  "PE",
+                                                                   "reader_ciphertext":  "SCDCZKKTXSPKZK",
+                                                                   "target_id":  240,
+                                                                   "skipped":  false,
+                                                                   "skip_reason":  null,
+                                                                   "gpu_survivors":  0,
+                                                                   "gpu_survivors_stored":  0,
+                                                                   "gpu_elapsed_seconds":  4.66166,
+                                                                   "gpu_states_per_second":  305849000,
+                                                                   "cpu_verify_wall_seconds":  0,
+                                                                   "cpu_verified_literal_gordon_settings":  0,
+                                                                   "cumulative_after_option":  0,
+                                                                   "ballooned":  false,
+                                                                   "incomplete":  false,
+                                                                   "incomplete_reason":  null,
+                                                                   "cpu_output":  null,
+                                                                   "survivor_path":  null,
+                                                                   "literal_settings":  [
+
+                                                                                        ]
+                                                               }
+                                                           ]
+                                    }
+                                ],
+    "literal_gordon_settings":  [
+
+                                ]
+}
