@@ -1,0 +1,111 @@
+﻿{
+    "schema":  "enigma_literal_expansion_summary_v1",
+    "generated_at_local":  "2026-06-30T19:19:04.1815416-05:00",
+    "source_verified_hits_json":  "preferred_stage_sweep_20260630_132659_verified_hits.json",
+    "requested_hit_indexes":  [
+                                  12,
+                                  13,
+                                  14,
+                                  15
+                              ],
+    "rules":  {
+                  "tier":  2,
+                  "max_gordon_plugboard_pairs":  6,
+                  "max_results":  "unlimited (--max-results 0)",
+                  "expansion_mode":  "behavior-class-list binary expanded to all matching literal ring/start states using enigma_m3_search_fast.exe",
+                  "original_stage_rules_preserved":  true
+              },
+    "totals":  {
+                   "requested_hit_count":  4,
+                   "total_behavior_class_count":  28,
+                   "total_verified_literal_setting_count":  728,
+                   "any_cap_hit":  false,
+                   "csv_path":  "literal_expansion_hits_12_13_14_15\\hits_12_13_14_15_verified_literal_settings.csv"
+               },
+    "hits":  [
+                 {
+                     "hit_index":  12,
+                     "original_stage":  "stage_a_strict_preferred",
+                     "reader_plaintext":  "THEDAYHIDDEATH",
+                     "gordon_plaintext":  "TIMEISACONFLUX",
+                     "ciphertext":  "BODZOMJTROPMNJ",
+                     "reader_settings":  {
+                                             "reflector":  "B",
+                                             "start_left_to_right":  "GJM",
+                                             "rings_left_to_right":  "MMM",
+                                             "active_pairs":  "PE"
+                                         },
+                     "gordon_max_plugboard_pairs":  6,
+                     "behavior_class_survivor_file":  "preferred_stage_sweep_20260630_132659\\stage_a_strict_preferred\\gordon_004\\reader_002\\chunk_0009\\candidate_88_survivors.bin",
+                     "behavior_class_count":  1,
+                     "expected_min_literal_settings":  26,
+                     "verified_literal_setting_count":  26,
+                     "cap_hit":  false,
+                     "cap_reason":  null,
+                     "raw_solver_json":  "literal_expansion_hits_12_13_14_15\\hit_12_literal_expansion.json"
+                 },
+                 {
+                     "hit_index":  13,
+                     "original_stage":  "stage_b_preferred16",
+                     "reader_plaintext":  "DEATHWASERASED",
+                     "gordon_plaintext":  "MINDORDERCHAOS",
+                     "ciphertext":  "WPOERUGXSHDGAG",
+                     "reader_settings":  {
+                                             "reflector":  "B",
+                                             "start_left_to_right":  "GJM",
+                                             "rings_left_to_right":  "MMM",
+                                             "active_pairs":  "PE UT"
+                                         },
+                     "gordon_max_plugboard_pairs":  6,
+                     "behavior_class_survivor_file":  "preferred_stage_sweep_20260630_132659\\stage_b_preferred16\\gordon_010\\reader_004\\chunk_0004\\candidate_670_survivors.bin",
+                     "behavior_class_count":  1,
+                     "expected_min_literal_settings":  26,
+                     "verified_literal_setting_count":  26,
+                     "cap_hit":  false,
+                     "cap_reason":  null,
+                     "raw_solver_json":  "literal_expansion_hits_12_13_14_15\\hit_13_literal_expansion.json"
+                 },
+                 {
+                     "hit_index":  14,
+                     "original_stage":  "stage_b_preferred16",
+                     "reader_plaintext":  "DEATHWASERASED",
+                     "gordon_plaintext":  "MINDCHAOSORDER",
+                     "ciphertext":  "WPMPRUQXZHKGRG",
+                     "reader_settings":  {
+                                             "reflector":  "B",
+                                             "start_left_to_right":  "GJM",
+                                             "rings_left_to_right":  "MMM",
+                                             "active_pairs":  "AF UT"
+                                         },
+                     "gordon_max_plugboard_pairs":  6,
+                     "behavior_class_survivor_file":  "preferred_stage_sweep_20260630_132659\\stage_b_preferred16\\gordon_011\\reader_004\\chunk_0002\\candidate_707_survivors.bin",
+                     "behavior_class_count":  1,
+                     "expected_min_literal_settings":  26,
+                     "verified_literal_setting_count":  26,
+                     "cap_hit":  false,
+                     "cap_reason":  null,
+                     "raw_solver_json":  "literal_expansion_hits_12_13_14_15\\hit_14_literal_expansion.json"
+                 },
+                 {
+                     "hit_index":  15,
+                     "original_stage":  "stage_b_preferred16",
+                     "reader_plaintext":  "DEATHWASERASED",
+                     "gordon_plaintext":  "CHAOSORDERMIND",
+                     "ciphertext":  "WPMBGTQXZCKRGR",
+                     "reader_settings":  {
+                                             "reflector":  "B",
+                                             "start_left_to_right":  "GJM",
+                                             "rings_left_to_right":  "MMM",
+                                             "active_pairs":  "AF GR"
+                                         },
+                     "gordon_max_plugboard_pairs":  6,
+                     "behavior_class_survivor_file":  "preferred_stage_sweep_20260630_132659\\stage_b_preferred16\\gordon_012\\reader_004\\chunk_0002\\candidate_684_survivors.bin",
+                     "behavior_class_count":  25,
+                     "expected_min_literal_settings":  650,
+                     "verified_literal_setting_count":  650,
+                     "cap_hit":  false,
+                     "cap_reason":  null,
+                     "raw_solver_json":  "literal_expansion_hits_12_13_14_15\\hit_15_literal_expansion.json"
+                 }
+             ]
+}
